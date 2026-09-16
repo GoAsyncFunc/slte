@@ -16,7 +16,7 @@ jobs:
 
     env:
       SLTE_USE_MIRROR: 'false'
-      SLTE_RELEASE_STORE_FILE: ${{ runner.temp }}/ci-throwaway.keystore
+      SLTE_RELEASE_STORE_FILE: ${{ github.workspace }}/ci-throwaway.keystore
       SLTE_RELEASE_STORE_PASSWORD: ci-throwaway
       SLTE_RELEASE_KEY_ALIAS: ci-throwaway
       SLTE_RELEASE_KEY_PASSWORD: ci-throwaway
