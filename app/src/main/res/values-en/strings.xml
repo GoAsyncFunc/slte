@@ -107,7 +107,7 @@
 
     <!-- Invite -->
     <string name="invite_title">Referral</string>
-    <string name="currency_symbol">CNY ¥</string>
+    <string name="currency_symbol">¥</string>
     <string name="invite_stat_registered">Invited</string>
     <string name="invite_stat_commission_rate">Rate</string>
     <string name="invite_stat_total">Earned</string>
