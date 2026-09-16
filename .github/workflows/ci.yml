@@ -16,6 +16,10 @@ jobs:
 
     env:
       SLTE_USE_MIRROR: 'false'
+      SLTE_RELEASE_STORE_FILE: ${{ runner.temp }}/ci-throwaway.keystore
+      SLTE_RELEASE_STORE_PASSWORD: ci-throwaway
+      SLTE_RELEASE_KEY_ALIAS: ci-throwaway
+      SLTE_RELEASE_KEY_PASSWORD: ci-throwaway
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -43,6 +47,15 @@ jobs:
           "$SDKMANAGER" "cmake;3.22.1" || echo "::warning::cmake 预装失败，交由 AGP 自动下载"
           ls "$ANDROID_SDK_ROOT/cmake" 2>/dev/null || echo "SDK 内暂无可用的 cmake"
 
+      - name: 生成 CI 一次性签名（lint 会分析 release 变体，必须存在）
+        run: |
+          set -e
+          keytool -genkeypair -v \
+            -keystore "$SLTE_RELEASE_STORE_FILE" \
+            -alias ci-throwaway -keyalg RSA -keysize 2048 -validity 1 \
+            -storepass ci-throwaway -keypass ci-throwaway \
+            -dname "CN=CI-Throwaway, OU=CI, O=CI, C=CN"
+
       - name: 内核产物完整性校验（SHA-256）
         run: |
           set -o pipefail
@@ -61,20 +74,7 @@ jobs:
           ./gradlew :app:assembleDebugAndroidTest 2>&1 | tee -a ci-failure.log
 
       - name: Release 混淆路径校验
-
-        env:
-
-          SLTE_RELEASE_STORE_FILE: ${{ runner.temp }}/ci-throwaway.keystore
-          SLTE_RELEASE_STORE_PASSWORD: ci-throwaway
-          SLTE_RELEASE_KEY_ALIAS: ci-throwaway
-          SLTE_RELEASE_KEY_PASSWORD: ci-throwaway
         run: |
-          set -e
-          keytool -genkeypair -v \
-            -keystore "$SLTE_RELEASE_STORE_FILE" \
-            -alias ci-throwaway -keyalg RSA -keysize 2048 -validity 1 \
-            -storepass ci-throwaway -keypass ci-throwaway \
-            -dname "CN=CI-Throwaway, OU=CI, O=CI, C=CN"
           set -o pipefail
           ./gradlew :app:minifyReleaseWithR8 :app:verifyReleaseApiSurvivors 2>&1 | tee -a ci-failure.log
 
