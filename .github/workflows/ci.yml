@@ -7,7 +7,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   quality:
@@ -44,16 +44,21 @@ jobs:
           ls "$ANDROID_SDK_ROOT/cmake" 2>/dev/null || echo "SDK 内暂无可用的 cmake"
 
       - name: 内核产物完整性校验（SHA-256）
-        run: ./gradlew :app:verifyKernelBinary
+        run: |
+          set -o pipefail
+          ./gradlew :app:verifyKernelBinary 2>&1 | tee -a ci-failure.log
 
       - name: 编译 + 单元测试
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug :app:testDebugUnitTest
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest 2>&1 | tee -a ci-failure.log
 
       - name: 仪器化测试编译检查
 
-        run: ./gradlew :app:assembleDebugAndroidTest
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebugAndroidTest 2>&1 | tee -a ci-failure.log
 
       - name: Release 混淆路径校验
 
@@ -70,17 +75,31 @@ jobs:
             -alias ci-throwaway -keyalg RSA -keysize 2048 -validity 1 \
             -storepass ci-throwaway -keypass ci-throwaway \
             -dname "CN=CI-Throwaway, OU=CI, O=CI, C=CN"
-          ./gradlew :app:minifyReleaseWithR8 :app:verifyReleaseApiSurvivors
+          set -o pipefail
+          ./gradlew :app:minifyReleaseWithR8 :app:verifyReleaseApiSurvivors 2>&1 | tee -a ci-failure.log
 
       - name: ktlint + Android Lint
         run: |
-          ./gradlew :app:ktlintCheck :app:lintDebug
+          set -o pipefail
+          ./gradlew :app:ktlintCheck :app:lintDebug 2>&1 | tee -a ci-failure.log
 
           if rg -n 'Icons\.(AutoMirrored\.)?(Outlined|Rounded|Filled|Sharp|TwoTone)\.' \
                app/src/main/java --glob '!**/ui/theme/SlteIcons.kt'; then
             echo "::error::页面出现裸 Icons.* 引用，请改为 SlteIcons.*（UI-GUIDELINES §3.4）"
             exit 1
           fi
+
+      - name: 失败日志推送到 ci-logs 分支（失败时）
+        if: failure()
+        run: |
+          set -e
+          test -f ci-failure.log || echo "（失败发生在日志采集之前，无 Gradle 输出）" > ci-failure.log
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B ci-logs
+          git add -f ci-failure.log
+          git commit -m "ci: 失败日志（run ${{ github.run_number }}）" || true
+          git push -f origin ci-logs
 
       - name: 上传检查报告（失败时）
         if: failure()
