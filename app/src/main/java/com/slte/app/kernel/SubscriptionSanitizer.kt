@@ -1,90 +1,320 @@
 package com.slte.app.kernel
 
 import com.slte.app.utils.AppLog
+import com.slte.app.utils.sanitizeLog
 
-/**
- * 订阅 YAML 清洗器：落盘前清零入站端口、清空 ui-subtitle-pattern、注入直连规则与 fake-ip 豁免。
- * 同时补全测速配置（组 url/timeout、provider health-check），保证缺省订阅也走统一测速 URL 与超时。
- * 行级编辑不改变 YAML 结构；结构异常时安全跳过，绝不抛异常。
- */
 object SubscriptionSanitizer {
 
-    /** 测速 URL：官方内核默认（HTTPS），与主流客户端一致；明文 HTTP 探活易被节点/落地限制导致超时 */
     private const val HEALTH_CHECK_URL = "https://www.gstatic.com/generate_204"
 
-    /** 测速超时（毫秒）：官方内核默认值 */
     private const val HEALTH_CHECK_TIMEOUT_MS = 5_000
 
-    /** 需要测速配置的组类型：仅这些类型消费 url/timeout */
+    private const val MAX_DOMAIN_LENGTH = 253
+
+    private const val MAX_DOMAIN_LABEL_LENGTH = 63
+
+    private const val LOG_TAG = "SLTE-Sanitizer"
+
+    private const val BOM = '\uFEFF'
+
     private val HEALTH_CHECK_GROUP_TYPES = setOf("url-test", "fallback", "load-balance")
 
-    /** 需清零的顶层端口键（0 = 不监听） */
     private val ZEROED_PORT_KEYS = setOf("port", "socks-port", "mixed-port", "redir-port", "tproxy-port")
 
-    /** 匹配顶层 "key: value" 行 */
-    private val TOP_LEVEL_KEY_VALUE = Regex("^(port|socks-port|mixed-port|redir-port|tproxy-port|allow-lan|bind-address)\\s*:\\s*.*$")
+    private val NEUTRALIZED_SCALAR_KEYS =
+        setOf(
+            "external-controller",
+            "external-controller-tls",
+            "external-controller-unix",
+            "external-controller-pipe",
+            "external-ui",
+            "external-ui-name",
+            "external-ui-url",
+            "secret",
+        )
 
-    /** 匹配任意缩进的 ui-subtitle-pattern 行 */
+    private val DROPPED_TOP_LEVEL_KEYS = setOf("hosts", "script", "scripting", "web", "listeners", "<<")
+
+    private val FORCED_OFF_TOP_LEVEL_KEYS = setOf("tun")
+
+    private val ZEROED_SWITCH_KEYS = setOf("allow-lan", "bind-address")
+
+    private val REWRITTEN_TOP_LEVEL_KEYS = ZEROED_PORT_KEYS + ZEROED_SWITCH_KEYS
+
+    private val RULES_KEY = "rules"
+
+    private val DNS_KEY = "dns"
+
+    private val PLAIN_KEY = Regex("^[A-Za-z0-9_-]+$")
+
+    private val SUBSCRIBE_ENTRY_KEY = Regex("^['\"]?(proxies|proxy-providers)['\"]?\\s*:\\s*(?:$|#|\\[|\\{|&|!)")
+
+    private val TOP_LEVEL_BLOCK_HEAD = Regex("^['\"]?(?:<<|[A-Za-z0-9_-]+)['\"]?\\s*:\\s*(?:&\\S+)?\\s*$")
+
+    private val TOP_LEVEL_FLOW_HEAD = Regex("^['\"]?(?:<<|[A-Za-z0-9_-]+)['\"]?\\s*:\\s*(?:&\\S+\\s*)?\\{")
+
+    private val TOP_LEVEL_KEY_VALUE =
+        Regex("^['\"]?(${REWRITTEN_TOP_LEVEL_KEYS.joinToString("|")})['\"]?\\s*:\\s*.*$")
+
     private val SUBTITLE_PATTERN_LINE = Regex("^(\\s*ui-subtitle-pattern\\s*:\\s*).*$")
 
-    private val PROXY_GROUPS_KEY = Regex("^proxy-groups\\s*:\\s*$")
-    private val PROXY_PROVIDERS_KEY = Regex("^proxy-providers\\s*:\\s*$")
     private val GROUP_ITEM_START = Regex("^\\s*-\\s*name\\s*:")
-    private val PROVIDER_KEY = Regex("^[A-Za-z0-9_-]+\\s*:\\s*$")
-    private val BLOCK_KEY = Regex("^(\\s*)([A-Za-z0-9_-]+)\\s*:")
-    private val RULES_KEY = Regex("^rules\\s*:\\s*$")
-    private val DNS_KEY = Regex("^dns\\s*:\\s*$")
-    private val FAKE_IP_FILTER_KEY = Regex("^fake-ip-filter\\s*:\\s*$")
-    private val FLOW_START = Regex("^[^#].*\\{\\s*$")
 
-    /**
-     * 订阅内容校验：必须是含 proxies 块的 Clash YAML；
-     * HTML 错误页/JSON 错误体等异常响应直接拒绝。
-     */
+    private val PROVIDER_KEY = Regex("^[A-Za-z0-9_-]+\\s*:\\s*$")
+
+    private val BLOCK_KEY = Regex("^(\\s*)([A-Za-z0-9_-]+)\\s*:")
+
+    private val ENABLE_KEY = Regex("^['\"]?enable['\"]?\\s*:")
+
+    private val FAKE_IP_FILTER_LINE = Regex("^fake-ip-filter\\s*:\\s*$")
+
+    private val INLINE_FAKE_IP_FILTER = Regex("^fake-ip-filter\\s*:\\s*\\S")
+
+    private val LIST_ITEM = Regex("^-\\s*")
+
+    private val KEY_SMUGGLING = Regex("[\\\\&*]")
+
     fun isValidSubscribeYaml(text: String): Boolean {
         if (text.isBlank()) return false
-        val trimmed = text.trimStart()
-        if (trimmed.startsWith("<") || trimmed.startsWith("{")) return false
-        return text.contains("proxies:")
+        if (text.any { it < ' ' && it != '\n' && it != '\r' && it != '\t' }) return false
+        val body = stripBom(text)
+        val head = body.trimStart()
+        if (head.startsWith("<") || head.startsWith("{")) return false
+        return body.lineSequence().any { SUBSCRIBE_ENTRY_KEY.containsMatchIn(it.trimStart()) }
     }
 
-    /**
-     * 清洗订阅 YAML。
-     *
-     * @param domains 需要直连的自家域名列表（如 example.com），全部注入直连规则与 fake-ip 豁免
-     * @return 清洗后的 YAML；异常时返回原文，不阻断订阅导入（行编辑出错时宁可保留原配置也不破坏订阅）。
-     */
-    fun sanitize(text: String, domains: List<String>): String {
+    fun sanitize(
+        text: String,
+        domains: List<String>,
+    ): String {
         if (text.isBlank()) return text
-        return try {
-            val lines = text.lines().toMutableList()
-            zeroTopLevelPorts(lines)
-            clearSubtitlePattern(lines)
-            injectHealthCheckConfig(lines)
-            val validDomains = domains.filter { it.isNotBlank() }
-            validDomains.forEach { injectDirectRule(lines, it) }
-            validDomains.forEach { injectFakeIpFilter(lines, it) }
-            lines.joinToString("\n")
-        } catch (_: Exception) {
-            AppLog.w("SLTE-Sanitizer", "sanitize 异常回退原文，内核补丁链兜底")
-            text
+        val lines = stripBom(text).lines().toMutableList()
+        dedentRootKeys(lines)
+        normalizeQuotedKeys(lines)
+
+        val portsRewritten = runStep("zeroTopLevelPorts") { zeroTopLevelPorts(lines) }
+        val controlNeutralized = runStep("neutralizeControlSurface") { neutralizeControlSurface(lines) }
+        runStep("clearSubtitlePattern") { clearSubtitlePattern(lines) }
+        runStep("injectHealthCheckConfig") { injectHealthCheckConfig(lines) }
+
+        var ruleInjected = true
+        directDomains(domains).forEach { domain ->
+            if (!runStep("injectDirectRule") { injectDirectRule(lines, domain) }) ruleInjected = false
+            runStep("injectFakeIpFilter") { injectFakeIpFilter(lines, domain) }
+        }
+
+        if (!portsRewritten || !controlNeutralized || !ruleInjected) {
+            AppLog.w(LOG_TAG, "清洗关键步骤失败，放弃输出")
+            return ""
+        }
+        if (hasUnsafeResidue(lines)) {
+            AppLog.w(LOG_TAG, "清洗后仍存在危险顶层键，放弃输出")
+            return ""
+        }
+        return lines.joinToString("\n")
+    }
+
+    private fun directDomains(domains: List<String>): List<String> {
+        val accepted = mutableListOf<String>()
+        val seen = mutableSetOf<String>()
+        domains.forEach { domain ->
+            if (domain.isBlank()) return@forEach
+            if (!isValidDirectDomain(domain)) {
+                AppLog.w(LOG_TAG, "直连域名非法，已忽略: ${sanitizeLog(domain)}")
+                return@forEach
+            }
+            if (!seen.add(domain.lowercase())) return@forEach
+            accepted.add(domain)
+        }
+        return accepted
+    }
+
+    private fun isValidDirectDomain(domain: String): Boolean {
+        if (domain.isEmpty() || domain != domain.trim() || domain.length > MAX_DOMAIN_LENGTH) return false
+        val labels = domain.split('.')
+        if (labels.any { it.isEmpty() || it.length > MAX_DOMAIN_LABEL_LENGTH }) return false
+        return labels.all { label ->
+            label.all(::isDomainChar) && isDomainEdgeChar(label.first()) && isDomainEdgeChar(label.last())
         }
     }
 
-    /** 补全测速配置：组缺 url/timeout 时注入，provider 缺 health-check 时注入（均幂等） */
+    private fun isDomainChar(char: Char): Boolean = isDomainEdgeChar(char) || char == '-' || char == '_'
+
+    private fun isDomainEdgeChar(char: Char): Boolean = char in 'a'..'z' || char in 'A'..'Z' || char in '0'..'9'
+
+    private fun runStep(
+        step: String,
+        block: () -> Unit,
+    ): Boolean = try {
+        block()
+        true
+    } catch (e: Throwable) {
+        AppLog.w(LOG_TAG, "清洗步骤 $step 出错，跳过该步: ${e.javaClass.simpleName}: ${sanitizeLog(e.message ?: "Unknown")}")
+        false
+    }
+
+    private fun stripBom(text: String): String {
+        var start = 0
+        while (start < text.length && text[start] == BOM) start++
+        return if (start == 0) text else text.substring(start)
+    }
+
+    private fun dedentRootKeys(lines: MutableList<String>) {
+        val rootIndent = lines.firstNotNullOfOrNull { rootIndentCandidate(it) } ?: return
+        if (rootIndent <= 0) return
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (line.length < rootIndent) continue
+            var shiftable = true
+            for (j in 0 until rootIndent) {
+                if (line[j] != ' ') {
+                    shiftable = false
+                    break
+                }
+            }
+            if (shiftable) lines[i] = line.substring(rootIndent)
+        }
+    }
+
+    private fun rootIndentCandidate(line: String): Int? {
+        val trimmed = line.trimStart()
+        if (trimmed.isEmpty()) return null
+        if (trimmed.startsWith("#") || trimmed.startsWith("%")) return null
+        if (trimmed == "---" || trimmed == "...") return null
+        var count = 0
+        while (count < line.length && line[count] == ' ') count++
+        if (count < line.length && line[count] == '\t') return null
+        return count
+    }
+
+    private fun leadingIndentLength(line: String): Int {
+        var count = 0
+        while (count < line.length && (line[count] == ' ' || line[count] == '\t')) count++
+        return count
+    }
+
+    private fun leadingIndent(line: String): String = line.substring(0, leadingIndentLength(line))
+
+    private fun tabIndentLength(line: String): Int {
+        var index = 0
+        while (index < line.length) {
+            val char = line[index]
+            if (char == ' ') return -1
+            if (char != '\t') return index
+            index++
+        }
+        return index
+    }
+
+    private fun isTopLevelLine(line: String): Boolean = tabIndentLength(line) >= 0
+
+    private fun normalizeQuotedKeys(lines: MutableList<String>) {
+        for (i in lines.indices) {
+            val line = lines[i]
+            val colon = unquotedColonIndex(line)
+            if (colon <= 0) continue
+            val rawKey = line.substring(0, colon).trim()
+            val key = unwrapQuotes(rawKey)
+            if (key == rawKey || !PLAIN_KEY.matches(key)) continue
+            lines[i] = leadingIndent(line) + key + line.substring(colon)
+        }
+    }
+
+    private fun unwrapQuotes(raw: String): String {
+        if (raw.length < 2) return raw
+        val quote = raw.first()
+        if (quote != '"' && quote != '\'') return raw
+        return if (raw.last() == quote) raw.substring(1, raw.length - 1) else raw
+    }
+
+    private fun unquotedColonIndex(line: String): Int {
+        var index = 0
+        while (index < line.length && (line[index] == ' ' || line[index] == '\t')) index++
+        var quote: Char? = null
+        while (index < line.length) {
+            val char = line[index]
+            if (quote != null) {
+                if (char == quote) quote = null
+            } else {
+                when {
+                    char == ':' -> return index
+                    char == '"' || char == '\'' -> quote = char
+                }
+            }
+            index++
+        }
+        return -1
+    }
+
+    private fun topLevelKey(line: String): String? {
+        if (!isTopLevelLine(line)) return null
+        val colon = unquotedColonIndex(line)
+        if (colon <= 0) return null
+        return normalizeKey(line.substring(0, colon)).ifEmpty { null }
+    }
+
+    private fun normalizeKey(raw: String): String = unwrapQuotes(raw.trim()).trim()
+
+    private fun topLevelBlockIndices(
+        lines: List<String>,
+        key: String,
+    ): MutableList<Int> {
+        val indices = mutableListOf<Int>()
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (topLevelKey(line) == key && TOP_LEVEL_BLOCK_HEAD.matches(line)) indices.add(i)
+        }
+        return indices
+    }
+
+    private fun hasUnsafeResidue(lines: List<String>): Boolean {
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (!isTopLevelLine(line)) continue
+            val trimmed = line.trim()
+            if (trimmed.startsWith("#") || trimmed == "---" || trimmed == "...") continue
+            if (trimmed == "?" || trimmed.startsWith("? ")) return true
+            if (trimmed.startsWith("{") || trimmed.startsWith("[")) return true
+            if (KEY_SMUGGLING.containsMatchIn(line.substring(0, maxOf(unquotedColonIndex(line), 0)))) return true
+            val key = topLevelKey(line) ?: continue
+            val value = line.substring(unquotedColonIndex(line) + 1).trim()
+            if (key in DROPPED_TOP_LEVEL_KEYS) return true
+            if (key in NEUTRALIZED_SCALAR_KEYS && value.isNotEmpty() && value != "\"\"") return true
+            if (key in ZEROED_PORT_KEYS && value != "0") return true
+            if (key == "allow-lan" && value != "false") return true
+            if (key == "bind-address" && value.isNotEmpty() && value != "\"\"") return true
+            if (key == "authentication" && value.isNotEmpty() && value != "[]") return true
+            if (key in FORCED_OFF_TOP_LEVEL_KEYS && !switchDisabled(lines, i)) return true
+        }
+        return false
+    }
+
+    private fun switchDisabled(
+        lines: List<String>,
+        index: Int,
+    ): Boolean {
+        val line = lines[index]
+        if (TOP_LEVEL_FLOW_HEAD.containsMatchIn(line)) return line.substringAfter(':').contains("enable: false")
+        if (!TOP_LEVEL_BLOCK_HEAD.matches(line)) return false
+        val end = topLevelBlockEnd(lines, index)
+        val childIndent = childKeyIndent(lines, index, end, "") ?: return false
+        return lines.subList(index + 1, end).none { child ->
+            leadingIndent(child) == childIndent &&
+                ENABLE_KEY.containsMatchIn(child.trimStart()) &&
+                child.substringAfter(':').trim() != "false"
+        }
+    }
+
     private fun injectHealthCheckConfig(lines: MutableList<String>) {
         injectGroupHealthCheck(lines)
         injectProviderHealthCheck(lines)
     }
 
-    /** 组测速配置：仅 url-test/fallback/load-balance 组，缺 url/timeout 或值为空时补齐 */
     private fun injectGroupHealthCheck(lines: MutableList<String>) {
-        val groupsIndex = lines.indexOfFirst { it.trim() == it && PROXY_GROUPS_KEY.matches(it.trim()) }
-        if (groupsIndex < 0) return
-        if (lines[groupsIndex].contains('[') || lines[groupsIndex].contains('{')) return
+        val groupsIndex = topLevelBlockIndices(lines, "proxy-groups").firstOrNull() ?: return
         val itemIndent = blockItemIndent(lines, groupsIndex) ?: return
         val keyIndent = itemIndent + "  "
-        // 从后往前插入，避免先插入使后续行号失效
+
         val pending = mutableListOf<Pair<Int, List<String>>>()
         var i = groupsIndex + 1
         while (i < lines.size) {
@@ -93,13 +323,13 @@ object SubscriptionSanitizer {
                 i++
                 continue
             }
-            val indent = line.substringBefore(line.trimStart())
+            val indent = leadingIndent(line)
             if (indent.length < itemIndent.length) break
             if (indent != itemIndent || !GROUP_ITEM_START.containsMatchIn(line)) {
                 i++
                 continue
             }
-            // flow 风格项（- {name: ...} / 行内列表）无法安全行级编辑，跳过
+
             if (line.contains('{') || line.contains('[')) {
                 i++
                 continue
@@ -114,13 +344,14 @@ object SubscriptionSanitizer {
             for ((key, value) in listOf("url" to HEALTH_CHECK_URL, "timeout" to HEALTH_CHECK_TIMEOUT_MS.toString())) {
                 when (blockKeyValue(lines, i, blockEnd, keyIndent, key)) {
                     KeyState.MISSING -> additions.add(keyIndent + "$key: $value")
-                    KeyState.EMPTY -> blockKeyLineIndex(lines, i, blockEnd, keyIndent, key)
-                        ?.let { replacements.add(it to keyIndent + "$key: $value") }
+                    KeyState.EMPTY ->
+                        blockKeyLineIndex(lines, i, blockEnd, keyIndent, key)
+                            ?.let { replacements.add(it to keyIndent + "$key: $value") }
                     KeyState.PRESENT -> Unit
                 }
             }
             if (additions.isNotEmpty()) pending.add(i + 1 to additions)
-            // 空值行替换与插入位置（i+1）不重叠：先替换后插入，行号均保持有效
+
             for ((at, text) in replacements.asReversed()) {
                 lines[at] = text
             }
@@ -131,11 +362,8 @@ object SubscriptionSanitizer {
         }
     }
 
-    /** provider 测速配置：缺 health-check 块时注入（含 URL/超时），已配置或 flow 风格跳过 */
     private fun injectProviderHealthCheck(lines: MutableList<String>) {
-        val providersIndex = lines.indexOfFirst { it.trim() == it && PROXY_PROVIDERS_KEY.matches(it.trim()) }
-        if (providersIndex < 0) return
-        if (lines[providersIndex].contains('[') || lines[providersIndex].contains('{')) return
+        val providersIndex = topLevelBlockIndices(lines, "proxy-providers").firstOrNull() ?: return
         val providerIndent = blockKeyIndent(lines, providersIndex) ?: return
         val pending = mutableListOf<Pair<Int, List<String>>>()
         var i = providersIndex + 1
@@ -145,13 +373,13 @@ object SubscriptionSanitizer {
                 i++
                 continue
             }
-            val indent = line.substringBefore(line.trimStart())
+            val indent = leadingIndent(line)
             if (indent.length < providerIndent.length) break
             if (indent != providerIndent || !PROVIDER_KEY.matches(line.trim())) {
                 i++
                 continue
             }
-            // flow 风格 provider（含 { 或 [）无法安全行级编辑，跳过
+
             if (line.contains('{') || line.contains('[')) {
                 i++
                 continue
@@ -166,22 +394,24 @@ object SubscriptionSanitizer {
                 i = blockEnd
                 continue
             }
-            // 内联 health-check（行内非纯键，如 flow 风格）视为已配置，避免重复键
+
             if (lines.subList(i, blockEnd).any {
                     it.contains("health-check:") && it.trim() != "health-check:"
-                }) {
+                }
+            ) {
                 i = blockEnd
                 continue
             }
             pending.add(
-                i + 1 to listOf(
-                    childKeyIndent + "health-check:",
-                    childKeyIndent + "  enable: true",
-                    childKeyIndent + "  url: $HEALTH_CHECK_URL",
-                    childKeyIndent + "  interval: 300",
-                    childKeyIndent + "  timeout: $HEALTH_CHECK_TIMEOUT_MS",
-                    childKeyIndent + "  lazy: true"
-                )
+                i + 1 to
+                    listOf(
+                        childKeyIndent + "health-check:",
+                        childKeyIndent + "  enable: true",
+                        childKeyIndent + "  url: $HEALTH_CHECK_URL",
+                        childKeyIndent + "  interval: 300",
+                        childKeyIndent + "  timeout: $HEALTH_CHECK_TIMEOUT_MS",
+                        childKeyIndent + "  lazy: true",
+                    ),
             )
             i = blockEnd
         }
@@ -190,38 +420,70 @@ object SubscriptionSanitizer {
         }
     }
 
-    /** 块结束索引：下一个同层或更浅缩进的非空行；找不到返回行尾 */
-    private fun blockEndIndex(lines: List<String>, start: Int, itemIndent: String): Int {
+    private fun blockEndIndex(
+        lines: List<String>,
+        start: Int,
+        itemIndent: String,
+    ): Int {
         for (i in start + 1 until lines.size) {
             val line = lines[i]
             if (line.isBlank() || line.trimStart().startsWith("#")) continue
-            val indent = line.substringBefore(line.trimStart())
-            if (indent.length <= itemIndent.length) return i
+            if (leadingIndent(line).length <= itemIndent.length) return i
         }
         return lines.size
     }
 
-    /** 块内是否已存在指定键（仅匹配 keyIndent 层级的块键） */
+    private fun topLevelBlockEnd(
+        lines: List<String>,
+        index: Int,
+    ): Int {
+        for (i in index + 1 until lines.size) {
+            val line = lines[i]
+            if (line.isBlank() || line.trimStart().startsWith("#")) continue
+            if (leadingIndentLength(line) != 0) continue
+            if (LIST_ITEM.containsMatchIn(line)) continue
+            return i
+        }
+        return lines.size
+    }
+
+    private fun listBlockEnd(
+        lines: List<String>,
+        keyIndex: Int,
+        itemIndent: String,
+    ): Int {
+        var end = keyIndex + 1
+        while (end < lines.size) {
+            val line = lines[end]
+            if (line.isBlank() || line.trimStart().startsWith("#")) {
+                end++
+                continue
+            }
+            if (!LIST_ITEM.containsMatchIn(line.trimStart()) || leadingIndent(line) != itemIndent) break
+            end++
+        }
+        return end
+    }
+
     private fun hasBlockKey(
         lines: List<String>,
         start: Int,
         end: Int,
         keyIndent: String,
-        key: String
+        key: String,
     ): Boolean = blockKeyValue(lines, start, end, keyIndent, key) != KeyState.MISSING
 
-    /** 块键存在状态：缺失 / 存在但值为空 / 存在且有值 */
     private fun blockKeyValue(
         lines: List<String>,
         start: Int,
         end: Int,
         keyIndent: String,
-        key: String
+        key: String,
     ): KeyState {
         for (i in start + 1 until end) {
             val line = lines[i]
             if (line.isBlank() || line.trimStart().startsWith("#")) continue
-            val indent = line.substringBefore(line.trimStart())
+            val indent = leadingIndent(line)
             if (indent.length < keyIndent.length) return KeyState.MISSING
             if (indent != keyIndent) continue
             val m = BLOCK_KEY.find(line) ?: continue
@@ -232,18 +494,17 @@ object SubscriptionSanitizer {
         return KeyState.MISSING
     }
 
-    /** 块键所在行号：未找到返回 null */
     private fun blockKeyLineIndex(
         lines: List<String>,
         start: Int,
         end: Int,
         keyIndent: String,
-        key: String
+        key: String,
     ): Int? {
         for (i in start + 1 until end) {
             val line = lines[i]
             if (line.isBlank() || line.trimStart().startsWith("#")) continue
-            val indent = line.substringBefore(line.trimStart())
+            val indent = leadingIndent(line)
             if (indent.length < keyIndent.length) return null
             if (indent != keyIndent) continue
             val m = BLOCK_KEY.find(line) ?: continue
@@ -252,49 +513,64 @@ object SubscriptionSanitizer {
         return null
     }
 
-    /** 组类型：块内 type 键的值（去引号小写）；未找到返回空串 */
-    private fun groupType(lines: List<String>, start: Int, end: Int, keyIndent: String): String {
+    private fun groupType(
+        lines: List<String>,
+        start: Int,
+        end: Int,
+        keyIndent: String,
+    ): String {
         for (i in start + 1 until end) {
             val line = lines[i]
             if (line.isBlank() || line.trimStart().startsWith("#")) continue
-            val indent = line.substringBefore(line.trimStart())
+            val indent = leadingIndent(line)
             if (indent.length < keyIndent.length) return ""
             if (indent != keyIndent) continue
             val m = BLOCK_KEY.find(line) ?: continue
             if (m.groupValues[2] != "type") continue
-            return line.substringAfter(':').trim().trim('\'').trim('"').lowercase()
+            return line
+                .substringAfter(':')
+                .trim()
+                .trim('\'')
+                .trim('"')
+                .lowercase()
         }
         return ""
     }
 
-    /** 块内子键缩进：首个非空子键行的前导空白；空块返回 null */
-    private fun childKeyIndent(lines: List<String>, start: Int, end: Int, parentIndent: String): String? {
+    private fun childKeyIndent(
+        lines: List<String>,
+        start: Int,
+        end: Int,
+        parentIndent: String,
+    ): String? {
         for (i in start + 1 until end) {
             val line = lines[i]
             if (line.isBlank() || line.trimStart().startsWith("#")) continue
-            val indent = line.substringBefore(line.trimStart())
+            val indent = leadingIndent(line)
             if (indent.length <= parentIndent.length) return null
             return indent
         }
         return null
     }
 
-    /** 清零顶层端口/allow-lan/bind-address（仅顶层行） */
     private fun zeroTopLevelPorts(lines: MutableList<String>) {
         for (i in lines.indices) {
             val line = lines[i]
-            if (line.isEmpty() || line[0] == ' ' || line[0] == '\t') continue
-            val m = TOP_LEVEL_KEY_VALUE.matchEntire(line) ?: continue
-            lines[i] = when (m.groupValues[1]) {
-                "allow-lan" -> "allow-lan: false"
-                "bind-address" -> "bind-address: \"\""
-                in ZEROED_PORT_KEYS -> "${m.groupValues[1]}: 0"
-                else -> line
-            }
+            val indent = tabIndentLength(line)
+            if (indent < 0) continue
+            val body = if (indent == 0) line else line.substring(indent)
+            val m = TOP_LEVEL_KEY_VALUE.matchEntire(body) ?: continue
+            val key = m.groupValues[1]
+            lines[i] =
+                when (key) {
+                    "allow-lan" -> "allow-lan: false"
+                    "bind-address" -> "bind-address: \"\""
+                    in ZEROED_PORT_KEYS -> "$key: 0"
+                    else -> line
+                }
         }
     }
 
-    /** 清空 ui-subtitle-pattern（消除 ReDoS 输入面） */
     private fun clearSubtitlePattern(lines: MutableList<String>) {
         for (i in lines.indices) {
             val m = SUBTITLE_PATTERN_LINE.matchEntire(lines[i]) ?: continue
@@ -302,72 +578,175 @@ object SubscriptionSanitizer {
         }
     }
 
-    /** 注入直连规则：插入 rules 块头部，缩进跟随已有条目；flow 风格或缺失时跳过 */
-    private fun injectDirectRule(lines: MutableList<String>, domain: String) {
-        val rule = "DOMAIN-SUFFIX,$domain,DIRECT"
-        if (lines.any { it.trim().removePrefix("- ").trim().trim('\'').trim('"') == rule }) return
-
-        val rulesIndex = lines.indexOfFirst { it.trim() == it && RULES_KEY.matches(it.trim()) }
-        if (rulesIndex < 0) return
-        // flow 风格：rules: [ 同行有 [ 或 { ，无法安全行插入
-        if (lines[rulesIndex].contains('[') || lines[rulesIndex].contains('{')) return
-
-        val indent = blockItemIndent(lines, rulesIndex) ?: return
-        lines.add(rulesIndex + 1, indent + "- '$rule'")
+    private fun neutralizeControlSurface(lines: MutableList<String>) {
+        dropTopLevelKeys(lines, DROPPED_TOP_LEVEL_KEYS)
+        forceOffTopLevelSwitches(lines, FORCED_OFF_TOP_LEVEL_KEYS)
+        for (i in lines.indices) {
+            val key = topLevelKey(lines[i]) ?: continue
+            if (key in NEUTRALIZED_SCALAR_KEYS) lines[i] = "$key: \"\""
+        }
+        clearAuthentication(lines)
     }
 
-    /** 注入 fake-ip-filter 条目：跟随已有块缩进；缺失时在 dns 块内新建；异常跳过 */
-    private fun injectFakeIpFilter(lines: MutableList<String>, domain: String) {
+    private fun dropTopLevelKeys(
+        lines: MutableList<String>,
+        keys: Set<String>,
+    ) {
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            val key = topLevelKey(line)
+            if (key == null || key !in keys) {
+                i++
+                continue
+            }
+            val end = if (TOP_LEVEL_BLOCK_HEAD.matches(line)) topLevelBlockEnd(lines, i) else i + 1
+            lines.subList(i, end).clear()
+        }
+    }
+
+    private fun forceOffTopLevelSwitches(
+        lines: MutableList<String>,
+        keys: Set<String>,
+    ) {
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            val key = topLevelKey(line)
+            if (key == null || key !in keys) {
+                i++
+                continue
+            }
+
+            if (TOP_LEVEL_FLOW_HEAD.containsMatchIn(line) || !TOP_LEVEL_BLOCK_HEAD.matches(line)) {
+                lines[i] = "$key: {enable: false}"
+                i++
+                continue
+            }
+            val end = topLevelBlockEnd(lines, i)
+            val childIndent = childKeyIndent(lines, i, end, "")
+            if (childIndent == null) {
+                lines.add(i + 1, "  enable: false")
+                i++
+                continue
+            }
+            var rewritten = false
+            for (j in i + 1 until end) {
+                val child = lines[j]
+                if (leadingIndent(child) != childIndent) continue
+                if (!ENABLE_KEY.containsMatchIn(child.trimStart())) continue
+                lines[j] = "${childIndent}enable: false"
+                rewritten = true
+            }
+            if (!rewritten) lines.add(i + 1, "${childIndent}enable: false")
+            i++
+        }
+    }
+
+    private fun clearAuthentication(lines: MutableList<String>) {
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            if (topLevelKey(line) != "authentication") {
+                i++
+                continue
+            }
+            val value = line.substring(unquotedColonIndex(line) + 1).trim()
+            if (line.contains('[') || value.isNotEmpty()) {
+                lines[i] = "authentication: []"
+                i++
+                continue
+            }
+            lines.subList(i, topLevelBlockEnd(lines, i)).clear()
+        }
+    }
+
+    private fun injectDirectRule(
+        lines: MutableList<String>,
+        domain: String,
+    ) {
+        val rule = "DOMAIN-SUFFIX,$domain,DIRECT"
+        topLevelBlockIndices(lines, RULES_KEY).asReversed().forEach { index ->
+            val indent = blockItemIndent(lines, index) ?: return@forEach
+            val end = listBlockEnd(lines, index, indent)
+            if (hasListItem(lines, index + 1, end, rule)) return@forEach
+            lines.add(index + 1, indent + "- '$rule'")
+        }
+    }
+
+    private fun injectFakeIpFilter(
+        lines: MutableList<String>,
+        domain: String,
+    ) {
         val entry = "+.$domain"
-        if (lines.any { it.trim().removePrefix("- ").trim().trim('\'').trim('"') == entry }) return
-
-        // 内联/flow 形式（行尾非冒号）无法安全合并：跳过注入避免重复键，域名豁免由内核 patchDns 兜底
-        if (lines.any { it.trim().startsWith("fake-ip-filter:") && !it.trim().endsWith(":") }) return
-
-        val keyIndex = lines.indexOfFirst { FAKE_IP_FILTER_KEY.matches(it.trim()) }
-        if (keyIndex >= 0) {
-            val indent = blockItemIndent(lines, keyIndex) ?: return
-            lines.add(keyIndex + 1, indent + "- '$entry'")
+        val filterIndex = lines.indexOfFirst { FAKE_IP_FILTER_LINE.matches(it.trim()) }
+        if (filterIndex >= 0) {
+            val keyIndent = leadingIndent(lines[filterIndex])
+            val indent = blockItemIndent(lines, filterIndex)
+            if (indent == null) {
+                lines.add(filterIndex + 1, keyIndent + "  - '$entry'")
+                return
+            }
+            val end = listBlockEnd(lines, filterIndex, indent)
+            if (hasListItem(lines, filterIndex + 1, end, entry)) return
+            lines.add(filterIndex + 1, indent + "- '$entry'")
             return
         }
 
-        val dnsIndex = lines.indexOfFirst { it.trim() == it && DNS_KEY.matches(it.trim()) }
-        if (dnsIndex < 0) return
-        if (lines[dnsIndex].contains('{')) return // flow 风格
+        if (lines.any { INLINE_FAKE_IP_FILTER.containsMatchIn(it.trim()) }) return
+
+        val dnsIndex = topLevelBlockIndices(lines, DNS_KEY).lastOrNull() ?: return
 
         val keyIndent = blockKeyIndent(lines, dnsIndex) ?: return
         lines.add(dnsIndex + 1, keyIndent + "fake-ip-filter:")
         lines.add(dnsIndex + 2, keyIndent + "    - '$entry'")
     }
 
-    /** 块内条目缩进：取键后首个非空、非注释行的前导空白 */
-    private fun blockItemIndent(lines: List<String>, keyIndex: Int): String? {
+    private fun hasListItem(
+        lines: List<String>,
+        start: Int,
+        end: Int,
+        value: String,
+    ): Boolean {
+        for (i in start until minOf(end, lines.size)) {
+            val line = lines[i]
+            if (line.isBlank() || line.trimStart().startsWith("#")) continue
+            val trimmed = line.trimStart()
+            if (!LIST_ITEM.containsMatchIn(trimmed)) continue
+            if (unwrapQuotes(trimmed.removePrefix("-").trim()).equals(value, ignoreCase = true)) return true
+        }
+        return false
+    }
+
+    private fun blockItemIndent(
+        lines: List<String>,
+        keyIndex: Int,
+    ): String? {
         for (i in keyIndex + 1 until lines.size) {
             val line = lines[i]
             if (line.isBlank() || line.trimStart().startsWith("#")) continue
-            if (line.trimStart().startsWith("-")) {
-                return line.substringBefore(line.trimStart())
-            }
-            return null // 下一行是键而非条目：块为空或格式异常
+            val trimmed = line.trimStart()
+            if (trimmed.startsWith("-")) return line.substring(0, line.length - trimmed.length)
+            return null
         }
         return null
     }
 
-    /** 块内键缩进：取键后首个非空、非注释行的前导空白 */
-    private fun blockKeyIndent(lines: List<String>, keyIndex: Int): String? {
+    private fun blockKeyIndent(
+        lines: List<String>,
+        keyIndex: Int,
+    ): String? {
         for (i in keyIndex + 1 until lines.size) {
             val line = lines[i]
             if (line.isBlank() || line.trimStart().startsWith("#")) continue
-            val indent = line.substringBefore(line.trimStart())
-            return indent
+            return leadingIndent(line)
         }
         return null
     }
 
-    /** 块键状态 */
     private enum class KeyState {
         MISSING,
         EMPTY,
-        PRESENT
+        PRESENT,
     }
 }
