@@ -56,6 +56,7 @@ fun PlansScreen(
         title = stringResource(R.string.plans_title),
         onBack = onBack,
     ) { innerPadding ->
+        val errorRes = data.errorMessageRes
         when {
             data.phase == ContentPhase.Loading -> {
                 Box(
@@ -65,9 +66,9 @@ fun PlansScreen(
                     LottieLoadingIcon(modifier = Modifier.size(Dimens.icon.lg))
                 }
             }
-            data.errorMessageRes != null && data.plans.isEmpty() -> {
+            errorRes != null && data.plans.isEmpty() -> {
                 ErrorState(
-                    message = stringResource(data.errorMessageRes!!),
+                    message = stringResource(errorRes),
                     onRetry = viewModel::retry,
                     modifier = Modifier.padding(innerPadding),
                 )

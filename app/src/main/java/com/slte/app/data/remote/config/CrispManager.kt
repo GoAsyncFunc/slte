@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Patterns
 import com.slte.app.utils.AppLog
+import com.slte.app.utils.sanitizeLog
 import im.crisp.client.external.ChatActivity
 import im.crisp.client.external.Crisp
 import im.crisp.client.external.EventsCallback
@@ -92,7 +93,8 @@ constructor() {
         try {
             Crisp.setUserEmail("")
             Crisp.setUserNickname("")
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Crisp 登出清理失败（已忽略）: ${sanitizeLog(e.message ?: "Unknown")}")
         }
     }
 

@@ -8,6 +8,7 @@ import com.slte.app.domain.model.Notice
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.User
+import com.slte.app.utils.AppLog
 import com.slte.app.utils.FormatUtils
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 @Singleton
 class SubscribeRepository
@@ -84,7 +86,10 @@ constructor(
                     subscribeInfoTimestamp = System.currentTimeMillis()
                     sessionStore.saveSubscribeInfo(info)
                     _subscribeInfo.value = info
-                    info.subscribeUrl?.takeIf { it.isNotBlank() }?.let { sessionStore.saveSubscribeUrl(it) }
+                    info.subscribeUrl?.takeIf { it.isNotBlank() }?.let { fresh ->
+                        logSubscribeHostChange(sessionStore.getSubscribeUrl(), fresh)
+                        sessionStore.saveSubscribeUrl(fresh)
+                    }
                     info
                 }
             if (result.isSuccess) {
@@ -180,4 +185,17 @@ constructor(
         resetDay = resetDay,
         subscribeUrl = subscribeUrl,
     )
+}
+
+internal fun subscribeHostOf(url: String?): String? = url?.trim()?.toHttpUrlOrNull()?.host?.lowercase()
+
+private fun logSubscribeHostChange(
+    previous: String?,
+    current: String,
+) {
+    val oldHost = subscribeHostOf(previous) ?: return
+    val newHost = subscribeHostOf(current) ?: return
+    if (oldHost != newHost) {
+        AppLog.w("SLTE-Subscribe", "订阅地址主机变更: $oldHost -> $newHost")
+    }
 }

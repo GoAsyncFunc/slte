@@ -57,11 +57,12 @@ fun ProfileScreen(
             }
 
             item {
+                val errorRes = errorMessageRes
                 if (data.isLoading) {
                     LoadingCard()
-                } else if (errorMessageRes != null) {
+                } else if (errorRes != null) {
                     ErrorCard(
-                        messageRes = errorMessageRes!!,
+                        messageRes = errorRes,
                         onRetry = viewModel::retry,
                     )
                 } else {

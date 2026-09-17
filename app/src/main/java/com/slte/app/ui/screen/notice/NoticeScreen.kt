@@ -49,16 +49,17 @@ fun NoticeScreen(
         if (uiState.phase == ContentPhase.Loading) {
             LoadingContent(modifier = Modifier.padding(innerPadding))
         } else {
+            val errorRes = uiState.errorMessageRes
             SltePullRefresh(
                 isRefreshing = uiState.phase == ContentPhase.Refreshing,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.padding(innerPadding),
             ) {
                 when {
-                    uiState.errorMessageRes != null ->
+                    errorRes != null ->
                         PullRefreshScrollable {
                             ErrorState(
-                                message = stringResource(uiState.errorMessageRes!!),
+                                message = stringResource(errorRes),
                                 onRetry = viewModel::loadNotices,
                             )
                         }

@@ -54,7 +54,7 @@ constructor(
             data.update { it.copy(isUpdating = true) }
             subscribeRepository.fetchSubscribeInfo(force = true).fold(
                 onSuccess = {
-                    val kernelResult = kernelConfig.updateProfile()
+                    val kernelResult = updateProfileWithFreshLink()
                     val kernelOk = kernelResult != ProfileUpdateResult.FAILED
                     if (kernelOk) {
                         serverRepository.invalidateCache()
@@ -82,6 +82,13 @@ constructor(
         } finally {
             updateMutex.unlock()
         }
+    }
+
+    private suspend fun updateProfileWithFreshLink(): ProfileUpdateResult {
+        val first = kernelConfig.updateProfile()
+        if (first != ProfileUpdateResult.FAILED) return first
+        subscribeRepository.fetchSubscribeInfo(force = true)
+        return kernelConfig.updateProfile()
     }
 
     suspend fun maybeSilentUpdate(

@@ -69,8 +69,6 @@ private fun Throwable.isProgrammaticFault(): Boolean = PROGRAMMATIC_FAULTS.any {
 
 internal const val DEFAULT_FAULT_TAG = "SLTE-Kernel"
 
-private const val GUARD_OWNER = "com.slte.app.kernel.KernelFaultReporter"
-
 internal fun Exception.logAsFault(tag: String = "SLTE-Kernel") {
     val summary = "${javaClass.simpleName}: ${sanitizeLog(message ?: "Unknown")}"
     if (isProgrammaticFault()) {

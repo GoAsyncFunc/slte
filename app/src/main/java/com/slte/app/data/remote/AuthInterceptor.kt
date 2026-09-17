@@ -83,10 +83,10 @@ constructor(
                 isAuthFailureBody = false,
             )
         val authenticated =
-            if (decision.attachToken) {
+            if (decision.attachToken && token != null) {
                 request
                     .newBuilder()
-                    .addHeader("Authorization", token!!)
+                    .addHeader("Authorization", token)
                     .build()
             } else {
                 if (token != null && !canAttachToken) {

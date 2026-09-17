@@ -2,8 +2,6 @@ fun useAliyunMirror(): Boolean = System.getenv("SLTE_USE_MIRROR")?.toBoolean() ?
 
 pluginManagement {
     repositories {
-        
-        
         if (System.getenv("SLTE_USE_MIRROR")?.toBoolean() != false) {
             maven { url = uri("https://maven.aliyun.com/repository/google") }
             maven { url = uri("https://maven.aliyun.com/repository/central") }

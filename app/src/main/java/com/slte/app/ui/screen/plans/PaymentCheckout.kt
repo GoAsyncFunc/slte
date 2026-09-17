@@ -54,13 +54,19 @@ constructor(
         result: CheckoutResult,
     ): CheckoutOutcome {
         AppLog.d(TAG, "checkout result: tradeNo=$tradeNo type=${result.type} hasRedirect=${result.redirectUrl != null}")
+        val redirectUrl = result.redirectUrl
         return when (decideCheckoutStep(result)) {
             CheckoutDecision.SUCCESS -> {
                 AppLog.i(TAG, "余额支付成功: tradeNo=$tradeNo")
                 CheckoutOutcome.Completed(tradeNo)
             }
 
-            CheckoutDecision.REDIRECT -> CheckoutOutcome.Redirect(tradeNo, result.redirectUrl!!)
+            CheckoutDecision.REDIRECT ->
+                if (redirectUrl != null) {
+                    CheckoutOutcome.Redirect(tradeNo, redirectUrl)
+                } else {
+                    CheckoutOutcome.Retry(tradeNo, R.string.order_pay_failed)
+                }
 
             CheckoutDecision.RETRY -> CheckoutOutcome.Retry(tradeNo, R.string.order_pay_failed)
         }

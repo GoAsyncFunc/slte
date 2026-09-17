@@ -320,4 +320,34 @@ class SubscriptionUpdaterTest {
         coVerify(atLeast = 2) { subscribeRepository.fetchSubscribeInfo(force = true) }
         coVerify(exactly = 0) { kernelConfig.updateProfile() }
     }
+
+    @Test
+    fun `内核首次失败时刷新订阅链接并重试一次`() = runTest(mainRule.dispatcher) {
+        stubExpiry()
+        val state = data(planName = "旧套餐")
+        coEvery { subscribeRepository.fetchSubscribeInfo(force = true) } returns Result.success(plan())
+        coEvery { kernelConfig.updateProfile() } returnsMany
+            listOf(ProfileUpdateResult.FAILED, ProfileUpdateResult.UPDATED)
+
+        updater().updateSubscription(state, neverRunScope)
+
+        coVerify(exactly = 2) { kernelConfig.updateProfile() }
+        coVerify(exactly = 2) { subscribeRepository.fetchSubscribeInfo(force = true) }
+        assertEquals(R.string.dashboard_refresh_done, state.value.errorMessageRes)
+        assertEquals("进阶套餐", state.value.planName)
+    }
+
+    @Test
+    fun `两次内核更新都失败时报订阅信息接口错误`() = runTest(mainRule.dispatcher) {
+        stubExpiry()
+        val state = data(planName = "旧套餐")
+        coEvery { subscribeRepository.fetchSubscribeInfo(force = true) } returns Result.success(plan())
+        coEvery { kernelConfig.updateProfile() } returns ProfileUpdateResult.FAILED
+
+        updater().updateSubscription(state, neverRunScope)
+
+        coVerify(exactly = 2) { kernelConfig.updateProfile() }
+        assertEquals(R.string.api_error_subscribe_info, state.value.errorMessageRes)
+        assertEquals("进阶套餐", state.value.planName)
+    }
 }

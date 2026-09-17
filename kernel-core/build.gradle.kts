@@ -15,7 +15,7 @@ android {
         minSdk = 28
         consumerProguardFiles("consumer-rules.pro")
         ndk {
-            // ponytail: 先只出 arm64-v8a，其余 ABI 需要时再加
+            // 仅发布 arm64-v8a：内核 so 只提供该 ABI，其余 ABI 需要时再补
             abiFilters += listOf("arm64-v8a")
         }
     }

@@ -14,10 +14,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 
-// ponytail: 上游 CMA 遗留，本应用从不 startService/bind 它（KernelManager 绑的是 RemoteService，连接走 TunService），
-// 全仓库仅 manifest 声明 + 自引用；ACTION_START_CLASH/TOGGLE_CLASH 亦无生产者与消费者。
-// 保留是为降低与上游 CMA 再同步的冲突成本。若要删除：同时移除 kernel-service/AndroidManifest.xml
-// 里的 .ClashService 声明（它的 specialUse FGS 声明从未生效，属多余的能力声明）。
+// 上游 CMA 遗留服务：本应用从不 startService/bind 它（KernelManager 绑定 RemoteService，连接走 TunService），
+// 全仓库仅清单声明与自引用，ACTION_START_CLASH / TOGGLE_CLASH 也没有生产者与消费者。
+// 保留是为了降低与上游 CMA 同步时的冲突成本；若要删除，需同时移除 kernel-service/AndroidManifest.xml
+// 中 .ClashService 的声明（其 specialUse 前台服务声明从未生效）。
 class ClashService : BaseService() {
     private val self: ClashService
         get() = this

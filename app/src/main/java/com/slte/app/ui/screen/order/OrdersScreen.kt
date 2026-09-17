@@ -66,6 +66,7 @@ fun OrdersScreen(
         title = stringResource(R.string.profile_orders),
         onBack = onBack,
     ) { innerPadding ->
+        val errorRes = data.errorMessageRes
         when {
             data.phase == ContentPhase.Loading && data.orders.isEmpty() -> {
                 Box(
@@ -79,9 +80,9 @@ fun OrdersScreen(
                         .LoadingBox()
                 }
             }
-            data.errorMessageRes != null && data.orders.isEmpty() -> {
+            errorRes != null && data.orders.isEmpty() -> {
                 ErrorState(
-                    message = stringResource(data.errorMessageRes!!),
+                    message = stringResource(errorRes),
                     onRetry = viewModel::retry,
                     modifier = Modifier.padding(innerPadding),
                 )

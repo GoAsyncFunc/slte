@@ -20,7 +20,6 @@ class ConfigRaceTest {
                 }
             }
         assertEquals("https://b.example.com", result.chosen?.url)
-        assertEquals("https://b.example.com", result.lastUrl)
     }
 
     @Test
@@ -30,14 +29,12 @@ class ConfigRaceTest {
                 if (url.endsWith("b.example.com")) null else FetchedConfig(url, "{}", "1.0", 5)
             }
         assertEquals("https://a.example.com", result.chosen?.url)
-        assertEquals("https://a.example.com", result.lastUrl)
     }
 
     @Test
     fun `全部源失败返回空结果`() = runBlocking {
         val result = ConfigRace.race(listOf("https://a.example.com", "https://b.example.com")) { null }
         assertNull(result.chosen)
-        assertNull(result.lastUrl)
     }
 
     @Test

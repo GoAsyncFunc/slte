@@ -42,10 +42,6 @@ data class XboardServerData(
     val tags: List<String>? = null,
     @SerialName("is_online")
     val isOnline: Int = 1,
-    @SerialName("cache_key")
-    val cacheKey: String? = null,
-    @SerialName("last_check_at")
-    val lastCheckAt: Long = 0L,
 ) {
     private fun resolveType(): ServerType = when (type) {
         "shadowsocks" -> ServerType.SHADOWSOCKS

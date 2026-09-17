@@ -80,9 +80,10 @@ fun ServerScreen(
             )
         },
     ) { innerPadding ->
-        if (errorMessageRes != null && data.nodes.isEmpty()) {
+        val errorRes = errorMessageRes
+        if (errorRes != null && data.nodes.isEmpty()) {
             ErrorState(
-                message = stringResource(errorMessageRes!!),
+                message = stringResource(errorRes),
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(innerPadding),
             )
