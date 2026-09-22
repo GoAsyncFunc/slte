@@ -45,6 +45,19 @@ private const val VERIFY_ATTEMPTS = 2
 
 private const val VERIFY_DELAY_MS = 120L
 
+suspend fun KernelProxy.nodeNames(): List<String> = safe(emptyList(), "nodeNames") {
+    val clash = manager.clash() ?: return@safe emptyList()
+    clash
+        .queryProxyGroupNames(excludeNotSelectable = false)
+        .asSequence()
+        .filterNot { it == "GLOBAL" }
+        .flatMap { group -> clash.queryProxyGroup(group, ProxySort.Default).proxies.asSequence() }
+        .filterNot { it.isGroup || it.name == "DIRECT" || it.name == "REJECT" }
+        .map { it.name }
+        .distinct()
+        .toList()
+}
+
 suspend fun KernelProxy.selectAuto(): Boolean = safe(false, "selectAuto") {
     val result = selectSpecialGroup("URLTest", "自动", "auto", "url")
     autoGroupName()?.let { patchGlobalIfGlobal(it) }

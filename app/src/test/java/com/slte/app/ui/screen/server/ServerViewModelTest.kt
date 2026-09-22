@@ -17,6 +17,7 @@ import com.slte.app.support.stubKernelBridge
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -51,7 +52,7 @@ class ServerViewModelTest {
         return ServerViewModel(serverRepository, subscribeRepository, kernelProxy)
     }
 
-    private fun stubKernelNodes(vararg names: String) {
+    private fun stubKernelNodes(vararg names: String): IClashManager {
         kernelNow = names.firstOrNull().orEmpty()
         val clash = mockk<IClashManager>(relaxed = true)
         val manager = mockk<KernelManager>(relaxed = true)
@@ -66,12 +67,14 @@ class ServerViewModelTest {
             kernelNow = secondArg()
             true
         }
+        return clash
     }
 
     private fun node(
         name: String,
         id: Int = 1,
-    ) = ServerNode(id = id, name = name, type = ServerType.VMESS, host = "h.example.com", port = 443)
+        type: ServerType = ServerType.VMESS,
+    ) = ServerNode(id = id, name = name, type = type, host = "h.example.com", port = 443)
 
     @Test
     fun `加载成功后填充节点并标注国家码`() = runTest(mainRule.dispatcher) {
@@ -131,10 +134,53 @@ class ServerViewModelTest {
     }
 
     @Test
-    fun `装饰前缀不一致时选中项跟随内核`() = runTest(mainRule.dispatcher) {
-        coEvery { serverRepository.fetchServers(any()) } returns Result.success(listOf(node("🇸🇬新加坡丨BGPˣ²", 1)))
+    fun `内核名字带协议前缀时按内核名字回填延迟`() = runTest(mainRule.dispatcher) {
+        coEvery { serverRepository.fetchServers(any()) } returns Result.success(listOf(node("香港01", 1)))
+        every { kernelProxy.speedResultStore.getSpeedResults() } returns mapOf("[vless]香港01" to 123)
         val vm = viewModel()
-        stubKernelNodes("[vless]🇸🇬新加坡丨BGPˣ²")
+        stubKernelNodes("[vless]香港01")
+        vm.loadNodes(force = true)
+        advanceUntilIdle()
+
+        val item = vm.data.value.nodes.first()
+        assertEquals("[vless]香港01", item.proxyName)
+        assertEquals(123, item.delay)
+    }
+
+    @Test
+    fun `选中项按内核名字下发切换`() = runTest(mainRule.dispatcher) {
+        coEvery { serverRepository.fetchServers(any()) } returns Result.success(listOf(node("香港01", 1)))
+        val vm = viewModel()
+        val clash = stubKernelNodes("[vless]香港01")
+        vm.loadNodes(force = true)
+        advanceUntilIdle()
+
+        vm.selectNode(vm.data.value.nodes.first().id)
+        advanceUntilIdle()
+
+        verify { clash.patchSelector(kernelGroup, "[vless]香港01") }
+    }
+
+    @Test
+    fun `同名多协议节点按协议标签消歧`() = runTest(mainRule.dispatcher) {
+        coEvery { serverRepository.fetchServers(any()) } returns
+            Result.success(listOf(node("香港01", 1, ServerType.VLESS)))
+        every { kernelProxy.speedResultStore.getSpeedResults() } returns mapOf("[vless]香港01" to 88)
+        val vm = viewModel()
+        stubKernelNodes("[trojan]香港01", "[vless]香港01")
+        vm.loadNodes(force = true)
+        advanceUntilIdle()
+
+        val item = vm.data.value.nodes.first()
+        assertEquals("[vless]香港01", item.proxyName)
+        assertEquals(88, item.delay)
+    }
+
+    @Test
+    fun `装饰前缀不一致时选中项跟随内核`() = runTest(mainRule.dispatcher) {
+        coEvery { serverRepository.fetchServers(any()) } returns Result.success(listOf(node("新加坡01", 1)))
+        val vm = viewModel()
+        stubKernelNodes("[vless]新加坡01")
         vm.loadNodes(force = true)
         advanceUntilIdle()
 

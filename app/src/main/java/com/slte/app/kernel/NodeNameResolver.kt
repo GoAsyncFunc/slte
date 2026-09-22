@@ -12,6 +12,12 @@ internal object NodeNameResolver {
     private val LEADING_DECORATION =
         Regex("^\\s*(?:\\[[^\\[\\]]*\\]|【[^【】]*】|\\([^()]*\\)|（[^（）]*）)\\s*")
 
+    private val PROTOCOL_TAG_PREFIX =
+        Regex(
+            "^\\s*\\[(?:vless|vmess|trojan|ss|hy|hy2|tuic|anytls|socks)\\]\\s*",
+            RegexOption.IGNORE_CASE,
+        )
+
     private val SYMBOL_DECORATION = Regex(
         "[\\u2190-\\u21FF\\u2300-\\u23FF\\u25A0-\\u2775\\u27A0-\\u27BF" +
             "\\u2B00-\\u2BFF\\u3000-\\u303F\\uFE00-\\uFE0F" +
@@ -43,6 +49,15 @@ internal object NodeNameResolver {
 
         return members.filter { of(it) == key }.singleOrNull()
     }
+
+    fun protocolTag(name: String): String? = PROTOCOL_TAG_PREFIX
+        .find(name)
+        ?.value
+        ?.trim()
+        ?.removeSurrounding("[", "]")
+        ?.lowercase()
+
+    fun displayName(name: String): String = PROTOCOL_TAG_PREFIX.replace(name, "").trim()
 
     private fun stripLeadingDecoration(name: String): String {
         var body = name

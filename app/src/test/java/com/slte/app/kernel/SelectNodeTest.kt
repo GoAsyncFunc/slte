@@ -12,6 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -67,11 +68,11 @@ class SelectNodeTest {
 
     @Test
     fun `订阅名字带协议前缀时按规范化结果切换`() = runTest(mainRule.dispatcher) {
-        givenNodes("[vless]🇭🇰香港丨IEPLˣ³", "[vless]🇸🇬新加坡丨BGPˣ²")
+        givenNodes("[vless]香港01", "[ss]日本01")
         val kernel = kernelProxy()
 
-        assertTrue(kernel.selectNode("🇸🇬新加坡丨BGPˣ²"))
-        verify { clash.patchSelector(group, "[vless]🇸🇬新加坡丨BGPˣ²") }
+        assertTrue(kernel.selectNode("日本01"))
+        verify { clash.patchSelector(group, "[ss]日本01") }
     }
 
     @Test
@@ -85,20 +86,20 @@ class SelectNodeTest {
 
     @Test
     fun `分组内没有该节点时不下发切换`() = runTest(mainRule.dispatcher) {
-        givenNodes("[vless]🇭🇰香港丨IEPLˣ³", "[vless]🇸🇬新加坡丨BGPˣ²")
+        givenNodes("[vless]香港01", "[ss]日本01")
         val kernel = kernelProxy()
 
-        assertFalse(kernel.selectNode("🇯🇵日本丨IEPLˣ³"))
+        assertFalse(kernel.selectNode("韩国01"))
         verify(exactly = 0) { clash.patchSelector(any(), any()) }
     }
 
     @Test
     fun `内核未真正切换时判定失败`() = runTest(mainRule.dispatcher) {
-        givenNodes("[vless]🇭🇰香港丨IEPLˣ³", "[vless]🇸🇬新加坡丨BGPˣ²")
+        givenNodes("[vless]香港01", "[ss]日本01")
         val kernel = kernelProxy()
         every { clash.patchSelector(group, any()) } returns true
 
-        assertFalse(kernel.selectNode("[vless]🇸🇬新加坡丨BGPˣ²"))
+        assertFalse(kernel.selectNode("[ss]日本01"))
     }
 
     @Test
@@ -111,7 +112,7 @@ class SelectNodeTest {
 
     @Test
     fun `切换后短暂读到旧状态时按最终状态判定`() = runTest(mainRule.dispatcher) {
-        givenNodes("[vless]🇭🇰香港丨IEPLˣ³", "[vless]🇸🇬新加坡丨BGPˣ²")
+        givenNodes("[vless]香港01", "[ss]日本01")
         val kernel = kernelProxy()
         var patched = false
         var staleOnce = false
@@ -131,6 +132,17 @@ class SelectNodeTest {
             ProxyGroup(type = "Selector", proxies = members, now = now)
         }
 
-        assertTrue(kernel.selectNode("[vless]🇸🇬新加坡丨BGPˣ²"))
+        assertTrue(kernel.selectNode("[ss]日本01"))
+    }
+
+    @Test
+    fun `列出内核节点名并排除直连与分组`() = runTest(mainRule.dispatcher) {
+        givenNodes("[vless]香港01", "DIRECT", "REJECT", "[ss]日本01")
+        val kernel = kernelProxy()
+
+        assertEquals(
+            listOf("[vless]香港01", "[ss]日本01"),
+            kernel.nodeNames(),
+        )
     }
 }
