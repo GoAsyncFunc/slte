@@ -45,13 +45,6 @@
         </service>
 
         <provider
-            android:name=".FilesProvider"
-            android:authorities="${applicationId}.files"
-            android:exported="false"
-            android:grantUriPermissions="true"
-            android:permission="android.permission.MANAGE_DOCUMENTS"
-            android:process=":background" />
-        <provider
             android:name=".StatusProvider"
             android:authorities="${applicationId}.status"
             android:exported="false"
