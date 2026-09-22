@@ -5,17 +5,22 @@ import androidx.lifecycle.viewModelScope
 import com.slte.app.data.repository.ServerRepository
 import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.kernel.KernelProxy
+import com.slte.app.kernel.KernelServerInfo
+import com.slte.app.kernel.NodeNameResolver
+import com.slte.app.kernel.SelectionType
 import com.slte.app.kernel.cachedSpeedResults
 import com.slte.app.kernel.groupByTypeCurrentNode
 import com.slte.app.kernel.groupByTypeDelay
 import com.slte.app.kernel.selectAuto
 import com.slte.app.kernel.selectFallback
 import com.slte.app.kernel.selectNode
+import com.slte.app.kernel.serverInfo
 import com.slte.app.kernel.speedTestProgressiveAndCache
 import com.slte.app.utils.Constants
 import com.slte.app.utils.ErrorMessages
 import com.slte.app.utils.extractCountryCode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +45,8 @@ constructor(
     private val _errorMessageRes = MutableStateFlow<Int?>(null)
     val errorMessageRes: StateFlow<Int?> = _errorMessageRes.asStateFlow()
 
+    private val refreshSeq = AtomicInteger()
+
     init {
 
         val cachedDelays = kernelProxy.cachedSpeedResults()
@@ -48,18 +55,47 @@ constructor(
     }
 
     private fun refreshSpecialNodes() {
+        val seq = refreshSeq.incrementAndGet()
         viewModelScope.launch {
             val auto = kernelProxy.groupByTypeCurrentNode("URLTest")
             val fallback = kernelProxy.groupByTypeCurrentNode("Fallback")
+            val info = kernelProxy.serverInfo()
+            if (seq != refreshSeq.get()) return@launch
             _data.update { state ->
                 state.copy(
                     autoNode = auto,
                     fallbackNode = fallback,
                     autoNodeCountryCode = countryOf(auto),
                     fallbackNodeCountryCode = countryOf(fallback),
+                    selectedNodeId = selectedNodeIdOf(state, info) ?: state.selectedNodeId,
                 )
             }
         }
+    }
+
+    private fun selectedNodeIdOf(
+        state: ServerData,
+        info: KernelServerInfo?,
+    ): Int? {
+        val current = info?.node
+        return when (info?.selection) {
+            SelectionType.AUTO -> 0
+            SelectionType.FALLBACK -> -1
+            SelectionType.MANUAL ->
+                current?.let { name ->
+                    state.nodes.firstOrNull { it.name == name }?.id ?: matchedNode(state, name)?.id
+                }
+            null -> null
+        }
+    }
+
+    private fun matchedNode(
+        state: ServerData,
+        name: String,
+    ): NodeItem? {
+        val key = NodeNameResolver.of(name)
+        if (key.isEmpty()) return null
+        return state.nodes.filter { NodeNameResolver.of(it.name) == key }.singleOrNull()
     }
 
     private fun countryOf(nodeName: String?): String? = nodeName?.let { name ->
@@ -138,9 +174,11 @@ constructor(
             }
             else -> {
                 val node = _data.value.nodes.firstOrNull { it.id == nodeId } ?: return
-                _data.update { it.copy(selectedNodeId = nodeId) }
                 viewModelScope.launch {
-                    kernelProxy.selectNode(node.name)
+                    if (kernelProxy.selectNode(node.name)) {
+                        _data.update { it.copy(selectedNodeId = nodeId) }
+                    }
+                    refreshSpecialNodes()
                 }
             }
         }
