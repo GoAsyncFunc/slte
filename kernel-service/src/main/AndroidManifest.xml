@@ -47,14 +47,10 @@
         <provider
             android:name=".FilesProvider"
             android:authorities="${applicationId}.files"
-            android:exported="true"
+            android:exported="false"
             android:grantUriPermissions="true"
             android:permission="android.permission.MANAGE_DOCUMENTS"
-            android:process=":background">
-            <intent-filter>
-                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
-            </intent-filter>
-        </provider>
+            android:process=":background" />
         <provider
             android:name=".StatusProvider"
             android:authorities="${applicationId}.status"
