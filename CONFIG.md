@@ -111,3 +111,11 @@ SLTE 的配置分三层，按优先级从高到低：
   `app/gradle.properties` + 远程配置下发。
 - 远程配置中的 `api_base_url` / `update_apk_url` / `direct_domains` 均经过域名白名单校验，
   非白名单域名会被拒绝。
+
+### 密钥托管
+
+- `release.keystore` 只存本机与 CI Secrets（`SLTE_RELEASE_STORE_B64`），**没有其他备份**。
+- 密钥丢失的后果是单向的：Android 不允许签名不同的 APK 覆盖安装，已发布的
+  应用将永远无法以新密钥升级，只能换包名重新发行。
+- 务必在密码管理器与离线介质各留一份 `release.keystore` 与三个口令
+  （store password / key alias / key password），并定期验证可解密。
