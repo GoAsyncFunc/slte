@@ -19,6 +19,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import com.slte.app.domain.model.PaymentMethod
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
@@ -92,7 +93,7 @@ internal fun PaymentMethodCell(
                 if (selected) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.paymentMethodDotAlpha)
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = SlteAlpha.paymentMethodDot)
                 }
             androidx.compose.foundation.Canvas(
                 modifier = Modifier.size(Dimens.radioDotSize),

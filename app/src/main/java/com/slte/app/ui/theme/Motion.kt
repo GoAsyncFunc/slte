@@ -40,4 +40,7 @@ object SlteMotion {
 
     /** 按压时缩到的最小比例。 */
     const val pressSinkScale = 0.94f
+
+    /** 首页连接开关滑块的滑动时长（HyperOS 开关规格）。 */
+    const val connectToggleDurationMs = 350
 }

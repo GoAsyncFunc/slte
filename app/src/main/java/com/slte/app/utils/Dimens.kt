@@ -44,7 +44,6 @@ object Dimens {
     val loadingBoxSize = 76.dp
     val loadingAnimSize = 32.dp
     val loadingTextGap = 5.dp
-    val loadingScrimAlpha = 0.3f
     val loadingBoxElevation = 8.dp
 
     val stateStickerSize = 80.dp
@@ -69,13 +68,11 @@ object Dimens {
     val cardElevation = 0.dp
 
     val planStatusPaddingV = 4.dp
-    val planStatusChipCornerRadius = 50
 
-    val inviteCodeItemBgAlpha = 0.5f
-    val noticeTimeAlpha = 0.75f
-    val paymentMethodDotAlpha = 0.4f
-    val dividerAlpha = 0.5f
-    val disabledAlpha = 0.4f
+    // 套餐状态胶囊：RoundedCornerShape 的 percent 参数（50% = 两端全圆）
+    val planStatusChipCornerPercent = 50
+
+    // 透明度类令牌已迁至 ui/theme/SlteAlpha，动效时长在 ui/theme/SlteMotion
 
     val dashboardScreenPaddingH = gap.lg
     val dashboardScreenPaddingV = 10.dp
@@ -98,7 +95,6 @@ object Dimens {
     val dashboardToggleThumbOffset = 52.dp
     val dashboardToggleThumbPadding = 4.dp
     val dashboardToggleGap = 10.dp
-    val dashboardToggleAnimDurationMs = 350
     val dashboardActionBtnHeight = size.button
 
     // 与首页卡片的内边距保持一致（12dp），保证页面节奏统一
@@ -122,14 +118,13 @@ object Dimens {
     val optionMenuItemPaddingH = gap.lg
     val optionMenuItemCheckSize = 20.dp
     val optionMenuCheckGap = 12.dp
-    val optionMenuScrimAlpha = 0.32f
     val optionMenuBlurRadius = 10.dp
 
     // 分组卡片（HyperOS 风格：一组一张卡片，行间 1.5dp 分隔线，两端内缩 20dp）
     val groupDividerThickness = 1.5.dp
     val groupDividerInset = 20.dp
 
-    // 圆角统一走 SlteShapes（见 ui/theme/Shape.kt），这里不再重复定义
+    // 圆角统一走 SlteShapes（见 ui/theme/Shape.kt），透明度走 ui/theme/SlteAlpha，这里只留几何
 
     val radioDotSize = 18.dp
     val radioDotInnerSize = 9.dp
@@ -138,7 +133,6 @@ object Dimens {
 
     val noticeTagPaddingH = 8.dp
     val noticeTagSpacing = 6.dp
-    val noticeBodyMaxLines = 2
 }
 
 object VerificationCodeConfig {

@@ -36,6 +36,7 @@ import com.slte.app.R
 import com.slte.app.ui.component.AnimatedSticker
 import com.slte.app.ui.component.LottieLoadingIcon
 import com.slte.app.ui.component.SlteCard
+import com.slte.app.ui.component.rememberToast
 import com.slte.app.ui.component.SlteScaffold
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteType
@@ -52,6 +53,7 @@ fun AboutScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val kernelVersion by viewModel.kernelVersion.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val toast = rememberToast()
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     SlteScaffold(
@@ -168,20 +170,10 @@ fun AboutScreen(
                     onClick = {
                         val file = AppLog.export(context)
                         if (file == null) {
-                            android.widget.Toast
-                                .makeText(
-                                    context,
-                                    context.getString(R.string.about_log_export_failed),
-                                    android.widget.Toast.LENGTH_SHORT,
-                                ).show()
+                            toast.show(R.string.about_log_export_failed)
                             return@AboutRowCard
                         }
-                        android.widget.Toast
-                            .makeText(
-                                context,
-                                context.getString(R.string.about_log_exported),
-                                android.widget.Toast.LENGTH_SHORT,
-                            ).show()
+                        toast.show(R.string.about_log_exported)
                         try {
                             val uri =
                                 FileProvider.getUriForFile(
@@ -201,12 +193,7 @@ fun AboutScreen(
                                 Intent.createChooser(send, context.getString(R.string.about_log_export_share)),
                             )
                         } catch (e: Exception) {
-                            android.widget.Toast
-                                .makeText(
-                                    context,
-                                    context.getString(R.string.about_log_share_failed),
-                                    android.widget.Toast.LENGTH_SHORT,
-                                ).show()
+                            toast.show(R.string.about_log_share_failed)
                         }
                     },
                 )
@@ -222,9 +209,7 @@ fun AboutScreen(
                 else -> null
             }
         if (res != null) {
-            android.widget.Toast
-                .makeText(context, context.getString(res), android.widget.Toast.LENGTH_SHORT)
-                .show()
+            toast.show(res)
             viewModel.consumeTip()
         }
     }

@@ -23,7 +23,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,6 +35,7 @@ import com.slte.app.ui.component.FlagPlaceholder
 import com.slte.app.ui.component.LottieLoadingIcon
 import com.slte.app.ui.component.SlteScaffold
 import com.slte.app.ui.component.SpecialNodeIcon
+import com.slte.app.ui.component.rememberToast
 import com.slte.app.ui.theme.SlteColors
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteShapes
@@ -52,14 +52,12 @@ fun ServerScreen(
 ) {
     val data by viewModel.data.collectAsStateWithLifecycle()
     val errorMessageRes by viewModel.errorMessageRes.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val toast = rememberToast()
 
     LaunchedEffect(errorMessageRes) {
         errorMessageRes?.let {
-            android.widget.Toast
-                .makeText(context, context.getString(it), android.widget.Toast.LENGTH_SHORT)
-                .show()
+            toast.show(it)
             viewModel.dismissError()
         }
     }

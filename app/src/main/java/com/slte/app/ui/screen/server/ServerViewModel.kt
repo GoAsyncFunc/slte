@@ -1,5 +1,6 @@
 package com.slte.app.ui.screen.server
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.kr328.clash.core.model.UrlTestResult
@@ -400,6 +401,7 @@ constructor(
     }
 }
 
+@Immutable
 data class ServerData(
     val nodes: List<NodeItem> = emptyList(),
     val selectedNodeId: Int = 0,

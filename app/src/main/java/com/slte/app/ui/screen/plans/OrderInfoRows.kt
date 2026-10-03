@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
 
@@ -57,7 +58,7 @@ internal fun OrderInfoDivider() {
             .fillMaxWidth()
             .height(Dimens.dividerThickness)
             .padding(horizontal = Dimens.dividerThickness)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = Dimens.dividerAlpha)),
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = SlteAlpha.divider)),
     )
 }
 

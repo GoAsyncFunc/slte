@@ -39,6 +39,7 @@ import androidx.core.content.ContextCompat
 import com.slte.app.R
 import com.slte.app.ui.component.CircleIconButton
 import com.slte.app.ui.component.UsageCard
+import com.slte.app.ui.component.rememberToast
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
@@ -57,6 +58,7 @@ internal fun MainScreen(
     onRenew: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val toast = rememberToast()
     var showProxySheet by remember { mutableStateOf(false) }
     val vpnPermissionLauncher =
         rememberLauncherForActivityResult(
@@ -126,12 +128,7 @@ internal fun MainScreen(
             data = data,
             onToggleConnection = {
                 if (!data.hasPlan) {
-                    android.widget.Toast
-                        .makeText(
-                            context,
-                            context.getString(R.string.dashboard_no_plan_tip),
-                            android.widget.Toast.LENGTH_SHORT,
-                        ).show()
+                    toast.show(R.string.dashboard_no_plan_tip)
                     onRenew()
                 } else {
                     requestNotificationPermission(context, notificationPermissionLauncher)

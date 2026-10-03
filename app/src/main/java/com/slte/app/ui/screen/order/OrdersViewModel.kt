@@ -1,5 +1,6 @@
 package com.slte.app.ui.screen.order
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class OrdersData(
     val orders: List<OrderInfo> = emptyList(),
     val phase: ContentPhase = ContentPhase.Loading,

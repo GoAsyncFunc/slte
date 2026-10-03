@@ -1,7 +1,9 @@
 package com.slte.app.ui.screen.main
 
+import androidx.compose.runtime.Immutable
 import com.slte.app.utils.Constants
 
+@Immutable
 data class DashboardData(
     val usedBytes: Long = 0L,
     val totalBytes: Long = 0L,

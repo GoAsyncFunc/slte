@@ -209,7 +209,7 @@ private fun UsageBadge(
     Box(
         modifier =
         Modifier
-            .clip(RoundedCornerShape(Dimens.planStatusChipCornerRadius))
+            .clip(RoundedCornerShape(percent = Dimens.planStatusChipCornerPercent))
             .background(bg)
             .padding(horizontal = Dimens.gap.lg, vertical = Dimens.planStatusPaddingV),
     ) {

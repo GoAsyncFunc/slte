@@ -26,6 +26,7 @@ import com.slte.app.R
 import com.slte.app.domain.model.InviteCodeInfo
 import com.slte.app.ui.component.SlteCard
 import com.slte.app.ui.component.rememberToast
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
@@ -100,7 +101,7 @@ private fun InviteCodeItem(
             .fillMaxWidth()
             .height(Dimens.inviteCodeItemHeight)
             .clip(SlteShapes.medium)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Dimens.inviteCodeItemBgAlpha))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = SlteAlpha.inviteCodeItemBg))
             .padding(horizontal = Dimens.inviteCodeItemPaddingH),
         verticalAlignment = Alignment.CenterVertically,
     ) {

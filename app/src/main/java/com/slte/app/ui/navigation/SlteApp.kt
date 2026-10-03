@@ -20,6 +20,7 @@ import com.slte.app.R
 import com.slte.app.domain.model.SessionState
 import com.slte.app.ui.component.AnimatedSticker
 import com.slte.app.ui.component.AppLocaleContent
+import com.slte.app.ui.component.rememberToast
 import com.slte.app.utils.Dimens
 import com.slte.app.utils.Stickers
 
@@ -30,15 +31,11 @@ fun SlteApp(
     val sessionState by viewModel.sessionState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val locale by viewModel.locale.collectAsStateWithLifecycle()
+    val toast = rememberToast()
 
     LaunchedEffect(Unit) {
         viewModel.sessionExpiredEvents.collect {
-            android.widget.Toast
-                .makeText(
-                    context,
-                    context.getString(R.string.session_expired_relogin),
-                    android.widget.Toast.LENGTH_LONG,
-                ).show()
+            toast.showLong(R.string.session_expired_relogin)
         }
     }
 

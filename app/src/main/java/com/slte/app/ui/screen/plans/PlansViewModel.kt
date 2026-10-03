@@ -1,5 +1,6 @@
 package com.slte.app.ui.screen.plans
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.data.repository.OrderRepository
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class PlansData(
     val plans: List<PlanInfo> = emptyList(),
     val phase: ContentPhase = ContentPhase.Loading,

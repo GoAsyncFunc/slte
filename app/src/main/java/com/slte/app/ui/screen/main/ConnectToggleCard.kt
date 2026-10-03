@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.IntOffset
 import com.slte.app.R
 import com.slte.app.ui.component.SlteCard
 import com.slte.app.ui.theme.SlteColors
+import com.slte.app.ui.theme.SlteMotion
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
 
@@ -119,7 +120,7 @@ private fun BigToggle(
 
     val thumbOffset by animateDpAsState(
         targetValue = if (isConnected) Dimens.dashboardToggleThumbOffset else Dimens.dashboardToggleThumbPadding,
-        animationSpec = tween(Dimens.dashboardToggleAnimDurationMs),
+        animationSpec = tween(SlteMotion.connectToggleDurationMs),
         label = "toggle_thumb",
     )
 

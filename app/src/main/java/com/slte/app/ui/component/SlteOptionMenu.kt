@@ -53,6 +53,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteColors
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteMotion
@@ -167,7 +168,7 @@ fun SlteOptionMenu(
             modifier =
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = Dimens.optionMenuScrimAlpha * dim.value))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = SlteAlpha.optionMenuScrim * dim.value))
                 .pointerInput(Unit) { detectTapGestures { onDismissRequest() } },
         ) {
             Popup(

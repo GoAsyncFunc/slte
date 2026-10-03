@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
@@ -45,7 +46,7 @@ enum class SlteButtonStyle {
 }
 
 /**
- * 按钮（HyperOS 规格）：16dp 圆角，按下只有标准水波纹，不做缩放/弹跳。
+ * 按钮（HyperOS 规格）：16dp 圆角；全局禁用水波纹（SlteTheme 关闭 ripple），按压反馈为触觉振动。
  */
 @Composable
 fun SlteButton(
@@ -108,7 +109,7 @@ fun SlteButton(
         modifier =
         modifier
             .height(effHeight)
-            .alpha(if (enabled) 1f else Dimens.disabledAlpha)
+            .alpha(if (enabled) 1f else SlteAlpha.disabled)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
             }.clickable(

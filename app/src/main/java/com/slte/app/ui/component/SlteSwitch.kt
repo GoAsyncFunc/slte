@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import com.slte.app.R
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteColors
 import com.slte.app.utils.Dimens
 
@@ -108,7 +109,7 @@ fun SlteSwitch(
                     if (enabled) {
                         trackColor
                     } else {
-                        trackColor.copy(alpha = Dimens.disabledAlpha)
+                        trackColor.copy(alpha = SlteAlpha.disabled)
                     },
                 ),
         ) {
@@ -126,7 +127,7 @@ fun SlteSwitch(
                         if (enabled) {
                             scheme.surface
                         } else {
-                            scheme.surface.copy(alpha = Dimens.disabledAlpha)
+                            scheme.surface.copy(alpha = SlteAlpha.disabled)
                         },
                     ),
             )

@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.utils.Dimens
 
@@ -41,6 +42,6 @@ fun SlteGroupDivider(modifier: Modifier = Modifier) {
     HorizontalDivider(
         modifier = modifier.padding(horizontal = Dimens.groupDividerInset),
         thickness = Dimens.groupDividerThickness,
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = Dimens.dividerAlpha),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = SlteAlpha.divider),
     )
 }

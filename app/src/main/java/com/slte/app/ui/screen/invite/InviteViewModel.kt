@@ -1,5 +1,6 @@
 package com.slte.app.ui.screen.invite
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
@@ -26,11 +27,13 @@ sealed interface WithdrawMethodsState {
 
     object Failed : WithdrawMethodsState
 
-    data class Ready(val methods: List<String>) : WithdrawMethodsState
+    @Immutable
+data class Ready(val methods: List<String>) : WithdrawMethodsState
 }
 
 enum class InviteSheet { None, Transfer, Withdraw }
 
+@Immutable
 data class InviteData(
     val stat: InviteStat = InviteStat(),
     val codes: List<InviteCodeInfo> = emptyList(),

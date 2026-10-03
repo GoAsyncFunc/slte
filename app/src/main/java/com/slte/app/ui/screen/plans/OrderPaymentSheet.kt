@@ -27,6 +27,7 @@ import com.slte.app.ui.component.SlteSheet
 import com.slte.app.ui.component.formatCurrency
 import com.slte.app.ui.component.formatNegCurrency
 import com.slte.app.ui.component.formatPlusCurrency
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
@@ -176,7 +177,7 @@ internal fun OrderPaymentSheet(
                     shape = SlteShapes.large,
                     color =
                     MaterialTheme.colorScheme.primary.copy(
-                        alpha = if (payEnabled) 1f else Dimens.disabledAlpha,
+                        alpha = if (payEnabled) 1f else SlteAlpha.disabled,
                     ),
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ) {

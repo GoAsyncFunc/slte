@@ -1,6 +1,7 @@
 package com.slte.app.ui.screen.notice
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class NoticeUiState(
     val phase: ContentPhase = ContentPhase.Loading,
     val notices: List<Notice> = emptyList(),

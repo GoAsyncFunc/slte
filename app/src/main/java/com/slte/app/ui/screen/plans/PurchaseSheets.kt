@@ -29,6 +29,7 @@ import com.slte.app.ui.component.SlteInputSize
 import com.slte.app.ui.component.SlteSheet
 import com.slte.app.ui.component.formatCurrency
 import com.slte.app.ui.component.formatNegCurrency
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
@@ -98,7 +99,7 @@ internal fun SelectPeriodSheet(
             shape = SlteShapes.large,
             color =
             MaterialTheme.colorScheme.primary.copy(
-                alpha = if (canConfirm) 1f else Dimens.disabledAlpha,
+                alpha = if (canConfirm) 1f else SlteAlpha.disabled,
             ),
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
