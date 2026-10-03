@@ -7,9 +7,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -25,9 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.core.content.ContextCompat
 import com.slte.app.R
 import com.slte.app.ui.component.CircleIconButton
@@ -68,6 +75,13 @@ internal fun MainScreen(
 
     LaunchedEffect(Unit) {
         mainViewModel.refreshKernelInfo()
+    }
+
+    // 首页可见且已开通套餐时，持续跟随内核的实时落点节点（连接与否都要跟随）
+    LaunchedEffect(data.hasPlan) {
+        if (data.hasPlan) {
+            mainViewModel.watchLiveSelection()
+        }
     }
 
     Scaffold(
@@ -183,21 +197,38 @@ internal fun DashboardContent(
         modifier = modifier.background(MaterialTheme.colorScheme.background),
     ) {
         val compact = maxHeight < Dimens.dashboardCompactBreakpoint
-        androidx.compose.foundation.lazy.LazyColumn(
+        val cardSpacing = if (compact) Dimens.dashboardCardSpacingCompact else Dimens.dashboardCardSpacing
+        val screenPaddingV = if (compact) Dimens.dashboardScreenPaddingVCompact else Dimens.dashboardScreenPaddingV
+        val toggleMinHeight =
+            if (compact) Dimens.dashboardToggleCardMinHeightCompact else Dimens.dashboardToggleCardMinHeight
+
+        // 上方三块内容（套餐卡 / 信息列表 / 双按钮）的实测高度：只有知道它们占了多少，
+        // 才能让底部连接卡精确补满剩下的空间——卡片上沿贴紧按钮、下沿贴紧安全区底部，
+        // 任何机型都落在同一位置：既不会探进系统小白条，也不会在下方留出大小不一的空白。
+        // 空间不够时（小屏 / 大字体）退到最小高度并允许整屏滚动，避免卡片被压扁。
+        val density = LocalDensity.current
+        var fixedContentHeight by remember { mutableStateOf<Dp?>(null) }
+        val toggleHeight =
+            fixedContentHeight
+                ?.let { (maxHeight - screenPaddingV * 2 - cardSpacing - it).coerceAtLeast(toggleMinHeight) }
+                ?: toggleMinHeight
+
+        Column(
             modifier =
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = Dimens.dashboardScreenPaddingH),
-            verticalArrangement =
-            Arrangement.spacedBy(
-                if (compact) Dimens.dashboardCardSpacingCompact else Dimens.dashboardCardSpacing,
-            ),
-            contentPadding =
-            PaddingValues(
-                vertical = if (compact) Dimens.dashboardScreenPaddingVCompact else Dimens.dashboardScreenPaddingV,
-            ),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Dimens.dashboardScreenPaddingH)
+                .padding(vertical = screenPaddingV),
+            verticalArrangement = Arrangement.spacedBy(cardSpacing),
         ) {
-            item {
+            Column(
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { fixedContentHeight = with(density) { it.height.toDp() } },
+                verticalArrangement = Arrangement.spacedBy(cardSpacing),
+            ) {
                 UsageCard(
                     planName = data.planName,
                     usedBytes = data.usedBytes,
@@ -217,8 +248,6 @@ internal fun DashboardContent(
                     actionEnabled = true,
                     onAction = onRenew,
                 )
-            }
-            item {
                 InfoListCard(
                     daysUntilExpired = if (data.expiredAt > 0L) data.daysUntilExpired else null,
                     serverName = data.serverName,
@@ -228,27 +257,20 @@ internal fun DashboardContent(
                     onServerClick = onServerClick,
                     onProxyClick = onProxyClick,
                 )
-            }
-            item {
                 DashboardActionButtons(
                     onUpdateSubscription = onUpdateSubscription,
                     hasPlan = data.hasPlan,
                     onInvite = onInvite,
                 )
             }
-            item {
-                ConnectToggleCard(
-                    isConnected = data.isConnected,
-                    isConnecting = data.isConnecting,
-                    onToggle = onToggleConnection,
-                    minHeight =
-                    if (compact) {
-                        Dimens.dashboardToggleCardMinHeightCompact
-                    } else {
-                        Dimens.dashboardToggleCardMinHeight
-                    },
-                )
-            }
+
+            ConnectToggleCard(
+                isConnected = data.isConnected,
+                isConnecting = data.isConnecting,
+                onToggle = onToggleConnection,
+                modifier = Modifier.height(toggleHeight),
+                minHeight = toggleMinHeight,
+            )
         }
     }
 }

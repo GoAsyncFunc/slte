@@ -13,6 +13,8 @@ data class Proxy(
     val type: String,
     val delay: Int,
     var isGroup: Boolean,
+    /** 内核在该节点的当前测速 URL 上已有历史（含失败）；false = 还没测到，delay 不可当结果 */
+    val measured: Boolean = false,
 ) : Parcelable {
     override fun writeToParcel(parcel: Parcel, flags: Int) {
         Parcelizer.encodeToParcel(serializer(), parcel, this)

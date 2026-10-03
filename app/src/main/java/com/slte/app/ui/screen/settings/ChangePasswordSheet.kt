@@ -37,6 +37,7 @@ fun ChangePasswordSheet(
             imeAction = ImeAction.Next,
             enabled = !state.submitting,
             size = SlteInputSize.Compact,
+            onSheet = true,
         )
 
         Spacer(modifier = Modifier.height(Dimens.gap.md))
@@ -49,6 +50,7 @@ fun ChangePasswordSheet(
             imeAction = ImeAction.Next,
             enabled = !state.submitting,
             size = SlteInputSize.Compact,
+            onSheet = true,
         )
 
         Spacer(modifier = Modifier.height(Dimens.gap.md))
@@ -60,6 +62,7 @@ fun ChangePasswordSheet(
             icon = SlteIcons.Password,
             enabled = !state.submitting,
             size = SlteInputSize.Compact,
+            onSheet = true,
         )
     }
 }

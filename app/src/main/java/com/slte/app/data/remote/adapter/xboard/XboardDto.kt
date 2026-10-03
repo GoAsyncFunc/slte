@@ -10,6 +10,7 @@ import com.slte.app.domain.model.InviteInfo
 import com.slte.app.domain.model.InviteStat
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class XboardLoginRequest(
@@ -103,6 +104,8 @@ fun XboardLoginData.toDomainLoginResponse() = LoginResponseDto(
 data class XboardSiteConfig(
     val is_email_verify: Int? = 0,
     val is_invite_force: Int? = 0,
+    // 邮箱后缀白名单：各面板可能是数组 / 字符串 / 0，统一交给 parseEmailWhitelistSuffixes
+    val email_whitelist_suffix: JsonElement? = null,
 )
 
 @Serializable

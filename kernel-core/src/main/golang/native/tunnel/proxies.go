@@ -29,6 +29,9 @@ type Proxy struct {
 	Type     string `json:"type"`
 	Delay    int    `json:"delay"`
 	IsGroup  bool   `json:"isGroup"`
+	// Measured 表示该节点在当前测速 URL 上已有历史（含失败）：true 才能把结果当数。
+	// 没测过和测了失败在 delay 上无法区分（都是 0），应用侧靠它避免把"还没测到"误判成超时。
+	Measured bool `json:"measured"`
 }
 
 type ProxyGroup struct {
@@ -204,6 +207,7 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 		}
 		testURL := latestDelayTestURL(p)
 		_, isGroup := p.Adapter().(outboundgroup.ProxyGroup)
+		history, measured := p.ExtraDelayHistories()[testURL]
 
 		result = append(result, &Proxy{
 			Name:     name,
@@ -212,6 +216,7 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 			Type:     p.Type().String(),
 			Delay:    int(p.LastDelayForTestUrl(testURL)),
 			IsGroup:  isGroup,
+			Measured: measured && len(history.History) > 0,
 		})
 	}
 	return result
@@ -239,6 +244,7 @@ func collectProviders(providers []provider.ProxyProvider, uiSubtitlePattern *reg
 
 			testURL := latestDelayTestURL(px)
 			_, isGroup := px.Adapter().(outboundgroup.ProxyGroup)
+			history, measured := px.ExtraDelayHistories()[testURL]
 
 			result = append(result, &Proxy{
 				Name:     name,
@@ -247,6 +253,7 @@ func collectProviders(providers []provider.ProxyProvider, uiSubtitlePattern *reg
 				Type:     px.Type().String(),
 				Delay:    int(px.LastDelayForTestUrl(testURL)),
 				IsGroup:  isGroup,
+				Measured: measured && len(history.History) > 0,
 			})
 		}
 	}

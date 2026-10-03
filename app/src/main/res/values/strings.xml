@@ -36,6 +36,8 @@
     <string name="error_password_required">请输入密码</string>
     <string name="error_new_password_required">请输入新密码</string>
     <string name="error_invite_required">邀请码为必填项</string>
+    <string name="register_email_local_placeholder">邮箱</string>
+    <string name="register_email_suffix_label">邮箱后缀</string>
 
     <!-- Top bar actions -->
     <string name="topbar_support">客服</string>
@@ -102,6 +104,7 @@
     <string name="server_fallback">故障转移</string>
     <string name="server_fallback_now">Fallback（%1$s）</string>
     <string name="server_timeout">超时</string>
+    <string name="server_offline">离线</string>
 
     <!-- Invite -->
     <string name="invite_title">邀请返利</string>

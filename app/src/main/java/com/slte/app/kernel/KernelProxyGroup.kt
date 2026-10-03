@@ -36,6 +36,7 @@ suspend fun KernelProxy.selectNode(name: String): Boolean = safe(false, "selectN
     }
 
     patchGlobalIfGlobal(resolved)
+    persistSelection(SelectionType.MANUAL, resolved)
     true
 }
 
@@ -60,12 +61,14 @@ suspend fun KernelProxy.nodeNames(): List<String> = safe(emptyList(), "nodeNames
 
 suspend fun KernelProxy.selectAuto(): Boolean = safe(false, "selectAuto") {
     val result = selectSpecialGroup("URLTest", "自动", "auto", "url")
+    if (result) persistSelection(SelectionType.AUTO)
     autoGroupName()?.let { patchGlobalIfGlobal(it) }
     result
 }
 
 suspend fun KernelProxy.selectFallback(): Boolean = safe(false, "selectFallback") {
     val result = selectSpecialGroup("Fallback", "故障", "fallback")
+    if (result) persistSelection(SelectionType.FALLBACK)
     fallbackGroupName()?.let { patchGlobalIfGlobal(it) }
     result
 }

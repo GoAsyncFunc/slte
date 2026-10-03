@@ -95,7 +95,7 @@ internal fun SelectPeriodSheet(
             Modifier
                 .fillMaxWidth()
                 .height(Dimens.size.button),
-            shape = SlteShapes.medium,
+            shape = SlteShapes.large,
             color =
             MaterialTheme.colorScheme.primary.copy(
                 alpha = if (canConfirm) 1f else Dimens.disabledAlpha,
@@ -141,7 +141,7 @@ internal fun PeriodGrid(
                             onSelect(pp.period)
                         },
                         modifier = Modifier.weight(1f),
-                        shape = SlteShapes.medium,
+                        shape = SlteShapes.large,
                         color =
                         if (selected) {
                             MaterialTheme.colorScheme.primary
@@ -199,6 +199,7 @@ internal fun CouponInput(
         placeholder = stringResource(R.string.purchase_coupon_hint),
         icon = SlteIcons.Coupon,
         iconDesc = stringResource(R.string.purchase_coupon_hint),
+        onSheet = true,
         trailing = {
             Spacer(modifier = Modifier.width(Dimens.gap.sm))
             TextButton(

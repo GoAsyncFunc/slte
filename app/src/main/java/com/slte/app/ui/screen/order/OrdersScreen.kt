@@ -259,7 +259,7 @@ private fun OrderStatusChip(status: OrderStatus) {
         }
 
     Surface(
-        shape = SlteShapes.medium,
+        shape = SlteShapes.large,
         color = bg,
     ) {
         Row(

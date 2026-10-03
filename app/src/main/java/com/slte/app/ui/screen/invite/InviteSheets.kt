@@ -52,6 +52,7 @@ fun TransferSheet(
             icon = SlteIcons.Amount,
             keyboardType = KeyboardType.Decimal,
             size = SlteInputSize.Compact,
+            onSheet = true,
         )
     }
 }

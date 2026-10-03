@@ -137,6 +137,12 @@ object Clash {
         return Bridge.nativePatchSelector(selector, name)
     }
 
+    /** 对单个节点跑一次真实测速；null = 内核里没有这个节点。 */
+    fun urlTest(name: String, timeoutMs: Int): UrlTestResult? {
+        return Bridge.nativeUrlTest(name, timeoutMs)
+            ?.let { Json.Default.decodeFromString(UrlTestResult.serializer(), it) }
+    }
+
     fun fetchAndValid(
         path: File,
         url: String,

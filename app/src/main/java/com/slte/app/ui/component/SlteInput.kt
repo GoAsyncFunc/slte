@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -46,9 +48,12 @@ fun SlteInput(
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Next,
     visualTransformation: VisualTransformation = VisualTransformation.None,
-    trailing: (@Composable () -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    /** 在 [trailing] 前加一条竖分割线：用于"输入 + 后缀选择"这种合体字段。 */
+    trailingDivider: Boolean = false,
     bordered: Boolean = true,
     size: SlteInputSize = SlteInputSize.Hero,
+    onSheet: Boolean = false,
 ) {
     val compact = size == SlteInputSize.Compact
     val fieldHeight = if (compact) Dimens.size.button else Dimens.size.row
@@ -58,13 +63,19 @@ fun SlteInput(
     val focused by interactionSource.collectIsFocusedAsState()
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = SlteShapes.medium,
-        color = MaterialTheme.colorScheme.surface,
+        shape = SlteShapes.large,
+        // 弹层是白底，字段用灰底；页面是灰底，字段一律白底（bordered 只控制要不要描边）
+        color =
+        if (onSheet) {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
         border =
         when {
-            focused -> BorderStroke(Dimens.strokeMedium, MaterialTheme.colorScheme.primary)
-            bordered -> BorderStroke(Dimens.dividerThickness, MaterialTheme.colorScheme.outline)
-            else -> null
+            focused -> BorderStroke(Dimens.strokeMedium, SlteColors.current.accentInteractive)
+            !bordered || onSheet -> null
+            else -> BorderStroke(Dimens.dividerThickness, MaterialTheme.colorScheme.outline)
         },
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
@@ -109,7 +120,21 @@ fun SlteInput(
                     innerTextField()
                 },
             )
-            trailing?.invoke()
+            trailing?.let {
+                if (trailingDivider) {
+                    VerticalDivider(
+                        modifier =
+                        Modifier
+                            .padding(horizontal = Dimens.gap.sm)
+                            .height(Dimens.icon.lg),
+                        thickness = Dimens.dividerThickness,
+                        // outlineVariant 在夜间模式下与字段深色底几乎同色，看不见；
+                        // outline 与字段描边同色，两种模式下都有足够对比度
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+                it()
+            }
         }
     }
 }

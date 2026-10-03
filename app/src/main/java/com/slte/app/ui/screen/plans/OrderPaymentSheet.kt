@@ -57,7 +57,7 @@ internal fun OrderPaymentSheet(
         } else {
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = SlteShapes.medium,
+                shape = SlteShapes.large,
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
@@ -173,7 +173,7 @@ internal fun OrderPaymentSheet(
                     Modifier
                         .weight(2f)
                         .height(Dimens.size.button),
-                    shape = SlteShapes.medium,
+                    shape = SlteShapes.large,
                     color =
                     MaterialTheme.colorScheme.primary.copy(
                         alpha = if (payEnabled) 1f else Dimens.disabledAlpha,

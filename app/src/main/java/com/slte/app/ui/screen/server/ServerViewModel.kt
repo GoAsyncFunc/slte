@@ -2,27 +2,35 @@ package com.slte.app.ui.screen.server
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.github.kr328.clash.core.model.UrlTestResult
+import com.slte.app.data.local.SpecialNodeSnapshot
 import com.slte.app.data.repository.ServerRepository
 import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.kernel.KernelProxy
 import com.slte.app.kernel.KernelServerInfo
+import com.slte.app.kernel.LIVE_SELECTION_BUSY_POLL_MS
 import com.slte.app.kernel.NodeNameResolver
 import com.slte.app.kernel.SelectionType
+import com.slte.app.kernel.cachedOfflineNodes
 import com.slte.app.kernel.cachedSpeedResults
 import com.slte.app.kernel.groupByTypeCurrentNode
-import com.slte.app.kernel.groupByTypeDelay
+import com.slte.app.kernel.nodeLatencyStream
 import com.slte.app.kernel.nodeNames
+import com.slte.app.kernel.saveOfflineNodes
 import com.slte.app.kernel.selectAuto
 import com.slte.app.kernel.selectFallback
 import com.slte.app.kernel.selectNode
 import com.slte.app.kernel.serverInfo
-import com.slte.app.kernel.speedTestProgressiveAndCache
+import com.slte.app.kernel.urlTestFailureKind
 import com.slte.app.utils.Constants
 import com.slte.app.utils.ErrorMessages
 import com.slte.app.utils.extractCountryCode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,6 +72,7 @@ constructor(
     init {
 
         serverRepository.getCachedServers()?.let { applyNodes(it) }
+        applySpecialNodeSnapshots()
         refreshSpecialNodes()
     }
 
@@ -75,6 +84,7 @@ constructor(
             val info = kernelProxy.serverInfo()
             val kernelNames = kernelProxy.nodeNames()
             val cachedDelays = kernelProxy.cachedSpeedResults()
+            val cachedOffline = kernelProxy.cachedOfflineNodes().orEmpty()
             if (seq != refreshSeq.get()) return@launch
             _data.update { state ->
                 val index = kernelNameIndex(kernelNames)
@@ -84,17 +94,67 @@ constructor(
                         node.copy(
                             proxyName = proxyName,
                             delay = proxyName?.let { cachedDelays?.get(it) } ?: node.delay,
+                            offline = proxyName in cachedOffline,
                         )
                     }
+                // 自动/故障转移当前成员的延迟：测速流每批都会写缓存，这里顺带取出来，
+                // 让这两行"拿到值就出结果"，而不是等整轮测速结束。
+                val autoDelay = cachedDelays?.get(auto)?.takeIf { it != Constants.DELAY_TIMEOUT }
+                val fallbackDelay = cachedDelays?.get(fallback)?.takeIf { it != Constants.DELAY_TIMEOUT }
                 state.copy(
                     nodes = nodes,
                     autoNode = auto?.let(NodeNameResolver::displayName),
                     fallbackNode = fallback?.let(NodeNameResolver::displayName),
                     autoNodeCountryCode = countryOf(nodes, auto),
                     fallbackNodeCountryCode = countryOf(nodes, fallback),
+                    autoNodeDelay = autoDelay ?: state.autoNodeDelay,
+                    kernelFallbackDelay = fallbackDelay ?: state.kernelFallbackDelay,
                     selectedNodeId = selectedNodeIdOf(nodes, info) ?: state.selectedNodeId,
                 )
             }
+            persistSpecialNodeSnapshots(auto, fallback)
+        }
+    }
+
+    /** 实时值落盘成快照，下次冷启动内核还没上报时，两行先用上次的成员和国旗垫显示。 */
+    private fun persistSpecialNodeSnapshots(auto: String?, fallback: String?) {
+        val state = _data.value
+        auto?.let {
+            serverRepository.saveAutoNodeSnapshot(
+                SpecialNodeSnapshot(
+                    kernelName = it,
+                    displayName = state.autoNode.orEmpty(),
+                    countryCode = state.autoNodeCountryCode.orEmpty(),
+                    delay = state.autoNodeDelay,
+                ),
+            )
+        }
+        fallback?.let {
+            serverRepository.saveFallbackNodeSnapshot(
+                SpecialNodeSnapshot(
+                    kernelName = it,
+                    displayName = state.fallbackNode.orEmpty(),
+                    countryCode = state.fallbackNodeCountryCode.orEmpty(),
+                    delay = state.kernelFallbackDelay,
+                ),
+            )
+        }
+    }
+
+    /** 内核还没上报时，先用快照把两行填上；实时值到达后由 [refreshSpecialNodes] 覆盖。 */
+    private fun applySpecialNodeSnapshots() {
+        val auto = serverRepository.getAutoNodeSnapshot()
+        val fallback = serverRepository.getFallbackNodeSnapshot()
+        if (auto == null && fallback == null) return
+        _data.update { state ->
+            state.copy(
+                autoNode = auto?.displayName ?: state.autoNode,
+                autoNodeCountryCode = auto?.countryCode?.takeIf { it.isNotEmpty() } ?: state.autoNodeCountryCode,
+                autoNodeDelay = auto?.delay ?: state.autoNodeDelay,
+                fallbackNode = fallback?.displayName ?: state.fallbackNode,
+                fallbackNodeCountryCode = fallback?.countryCode?.takeIf { it.isNotEmpty() } ?: state.fallbackNodeCountryCode,
+                kernelFallbackDelay = fallback?.delay ?: state.kernelFallbackDelay,
+            )
         }
     }
 
@@ -183,6 +243,7 @@ constructor(
 
     private fun applyNodes(servers: List<com.slte.app.domain.model.ServerNode>) {
         val existing = _data.value.nodes.associate { it.name to it.delay }
+        val offlineByName = _data.value.nodes.associate { it.name to it.offline }
         val nodes =
             servers
                 .distinctBy { it.name }
@@ -194,6 +255,7 @@ constructor(
                         type = server.type.name,
                         host = server.host,
                         delay = existing[server.name],
+                        offline = offlineByName[server.name] ?: false,
                     )
                 }
         _data.update { it.copy(nodes = nodes, isLoading = false) }
@@ -234,49 +296,102 @@ constructor(
         _data.update { it.copy(isTesting = true, testedNodes = emptySet()) }
         _errorMessageRes.value = null
         viewModelScope.launch {
-            val delays =
-                kernelProxy.speedTestProgressiveAndCache { partial ->
-                    _data.update { state ->
-                        if (partial.isEmpty()) return@update state
-
-                        val nodes =
-                            state.nodes.map { node ->
-                                val d = partial[node.proxyName ?: node.name]
-                                if (d != null && d != Constants.DELAY_TIMEOUT && node.name !in state.testedNodes) node.copy(delay = d) else node
-                            }
-
-                        val tested =
-                            state.nodes.mapNotNull { node ->
-                                val d = partial[node.proxyName ?: node.name]
-                                node.name.takeIf { d != null && d != Constants.DELAY_TIMEOUT }
-                            }
-                        state.copy(nodes = nodes, testedNodes = state.testedNodes + tested)
+            var latest: Map<String, Int> = emptyMap()
+            var lastSpecialRefresh = 0L
+            kernelProxy.nodeLatencyStream().collect { update ->
+                latest = update.all
+                if (update.fresh.isNotEmpty()) {
+                    // 谁先出结果就先落到列表里
+                    applyFreshDelays(update.fresh)
+                    // 自动选择/故障转移两行跟着内核的实时切换走，但别每批都刷，避免刷爆 IPC
+                    val now = System.currentTimeMillis()
+                    if (now - lastSpecialRefresh >= LIVE_SELECTION_BUSY_POLL_MS) {
+                        lastSpecialRefresh = now
+                        refreshSpecialNodes()
                     }
                 }
-            val cached = kernelProxy.cachedSpeedResults()
-            val fallbackDelay = kernelProxy.groupByTypeDelay("Fallback")
-            _data.update { state ->
-                val nodes =
-                    state.nodes.map { node ->
-                        val key = node.proxyName ?: node.name
-                        val d = delays[key]
-                        val delay =
-                            when {
-                                d != null && d != Constants.DELAY_TIMEOUT -> d
-                                d == Constants.DELAY_TIMEOUT -> cached?.get(key) ?: d
-                                else -> node.delay
-                            }
-                        node.copy(delay = delay)
-                    }
-                state.copy(
-                    nodes = nodes,
-                    isTesting = false,
-                    testedNodes = emptySet(),
-                    kernelFallbackDelay = fallbackDelay,
-                )
             }
-            refreshSpecialNodes()
+            // 没出结果的节点逐个探活：只有确认后端不在了才记离线，缓存随延迟一起落盘
+            val offlineNodes = probeFailedNodes(latest)
+            if (offlineNodes.isNotEmpty()) kernelProxy.saveOfflineNodes(offlineNodes)
+            finishSpeedTest(latest, offlineNodes)
         }
+    }
+
+    /**
+     * 测速没出结果的节点逐个走内核真实测速，确认"后端不在了"（域名解析失败/连接被拒）才记离线；
+     * 判定不了的（在但不回包、内核里已无此节点等）一律不标，保持超时语义。
+     * 内核没跑起来（latest 为空）时不测，避免把整页节点误判成离线。
+     */
+    private suspend fun probeFailedNodes(latest: Map<String, Int>): Set<String> {
+        if (latest.isEmpty()) return emptySet()
+        val failed =
+            _data.value.nodes
+                .filter { it.proxyName != null }
+                .filter { node ->
+                    val key = node.proxyName ?: return@filter false
+                    latest[key] == null || latest[key] == Constants.DELAY_TIMEOUT
+                }
+        if (failed.isEmpty()) return emptySet()
+        return coroutineScope {
+            failed
+                .map { node ->
+                    async {
+                        node.proxyName?.takeIf {
+                            kernelProxy.urlTestFailureKind(
+                                name = it,
+                                timeoutMs = Constants.NODE_URLTEST_TIMEOUT_MS,
+                            ) == UrlTestResult.KIND_OFFLINE
+                        }
+                    }
+                }.awaitAll().filterNotNull().toSet()
+        }
+    }
+
+    /** 增量落结果：只用本次新出的延迟覆盖对应节点，不覆盖用户手动设置过的值。 */
+    private fun applyFreshDelays(fresh: Map<String, Int>) {
+        _data.update { state ->
+            val nodes =
+                state.nodes.map { node ->
+                    val delay = fresh[node.proxyName ?: node.name]
+                    if (delay != null && node.name !in state.testedNodes) node.copy(delay = delay) else node
+                }
+            val tested =
+                state.nodes.mapNotNull { node ->
+                    node.name.takeIf { fresh[node.proxyName ?: node.name] != null }
+                }
+            state.copy(nodes = nodes, testedNodes = state.testedNodes + tested)
+        }
+    }
+
+    /** 收尾：没测到结果的节点回退到缓存值，测过但失败的标"超时"，并刷新自动/故障转移两行。 */
+    private suspend fun finishSpeedTest(
+        latest: Map<String, Int>,
+        offlineNodes: Set<String>,
+    ) {
+        val cached = kernelProxy.cachedSpeedResults()
+        _data.update { state ->
+            val nodes =
+                state.nodes.map { node ->
+                    val key = node.proxyName ?: node.name
+                    val measured = latest[key]?.takeIf { it != Constants.DELAY_TIMEOUT }
+                    // 内核测过但没出延迟（且不是离线）：按超时收尾，不留空白
+                    val failed =
+                        latest.isNotEmpty() &&
+                            node.proxyName != null &&
+                            (latest[key] == null || latest[key] == Constants.DELAY_TIMEOUT)
+                    node.copy(
+                        delay = measured ?: cached?.get(key) ?: if (failed) Constants.DELAY_TIMEOUT else node.delay,
+                        offline = key in offlineNodes,
+                    )
+                }
+            state.copy(
+                nodes = nodes,
+                isTesting = false,
+                testedNodes = emptySet(),
+            )
+        }
+        refreshSpecialNodes()
     }
 
     fun updateSubscription() {
@@ -302,15 +417,17 @@ data class ServerData(
     val autoNodeCountryCode: String? = null,
 
     val fallbackNodeCountryCode: String? = null,
+
+    /** 自动选择组当前成员的延迟（来自测速流缓存）。 */
+    val autoNodeDelay: Int? = null,
 ) {
 
     val autoDelay: Int?
-        get() =
-            nodes
-                .asSequence()
-                .mapNotNull { it.delay }
-                .filter { it != Constants.DELAY_TIMEOUT }
-                .minOrNull()
+        get() = autoNodeDelay ?: nodes
+            .asSequence()
+            .mapNotNull { it.delay }
+            .filter { it != Constants.DELAY_TIMEOUT }
+            .minOrNull()
 
     val fallbackDelay: Int?
         get() =
@@ -331,4 +448,5 @@ data class NodeItem(
     val host: String = "",
     val delay: Int? = null,
     val proxyName: String? = null,
+    val offline: Boolean = false,
 )

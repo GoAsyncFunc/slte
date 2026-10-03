@@ -2,6 +2,7 @@ package com.slte.app.data.repository
 
 import com.slte.app.BuildConfig
 import com.slte.app.data.local.SessionStore
+import com.slte.app.data.local.SpecialNodeSnapshot
 import com.slte.app.data.remote.api.AuthApi
 import com.slte.app.domain.model.ServerNode
 import com.slte.app.utils.AppLog
@@ -15,6 +16,9 @@ internal object CachePolicy {
     const val USER_INFO_TTL_MS = 30_000L
 
     const val SERVER_NODES_TTL_MS = 30 * 60_000L
+
+    /** 节点延迟缓存：只用来先把界面填上，超过这个时间就重新测。 */
+    const val LATENCY_TTL_MS = 6 * 60 * 60_000L
 
     fun isFresh(
         cachedAtMs: Long,
@@ -62,6 +66,17 @@ constructor(
     fun invalidateCache() {
         sessionStore.clearServerNodes()
     }
+
+    /** 自动选择/故障转移最近一次成员快照：内核离线时垫显示，实时值到达后覆盖。 */
+    fun saveAutoNodeSnapshot(snapshot: SpecialNodeSnapshot) = sessionStore.saveAutoNodeSnapshot(snapshot)
+
+    fun getAutoNodeSnapshot(): SpecialNodeSnapshot? = sessionStore.getAutoNodeSnapshot()
+
+    fun saveFallbackNodeSnapshot(snapshot: SpecialNodeSnapshot) = sessionStore.saveFallbackNodeSnapshot(snapshot)
+
+    fun getFallbackNodeSnapshot(): SpecialNodeSnapshot? = sessionStore.getFallbackNodeSnapshot()
+
+    fun invalidateSpecialNodeSnapshots() = sessionStore.clearSpecialNodeSnapshots()
 
     private fun debugLog(message: String) {
         if (BuildConfig.DEBUG) {

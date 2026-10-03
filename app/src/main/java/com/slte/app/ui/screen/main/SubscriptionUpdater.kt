@@ -9,7 +9,8 @@ import com.slte.app.kernel.KernelConfig
 import com.slte.app.kernel.KernelManager
 import com.slte.app.kernel.KernelProxy
 import com.slte.app.kernel.ProfileUpdateResult
-import com.slte.app.kernel.speedTestUntilReady
+import com.slte.app.kernel.clearSpeedResults
+import com.slte.app.kernel.refreshSelectionAndMeasure
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.Constants
 import com.slte.app.utils.ErrorMessages
@@ -208,14 +209,22 @@ constructor(
         )
     }
 
+    /**
+     * 订阅更新后的收尾：先把选择方式立刻交给内核（自动选择/故障转移马上生效），
+     * 再用流式测速把每个节点先出的结果陆续写进缓存——不等待全部节点。
+     *
+     * @param configChanged 配置被改写时，上一份订阅的延迟不再可信，先清缓存。
+     */
     private suspend fun autoSpeedTestAfterUpdate(configChanged: Boolean) {
         if (configChanged && kernelManager.connected.value) {
             val before = kernelManager.profileLoaded.value
             withTimeoutOrNull(SPEED_TEST_WAIT_MS) {
                 kernelManager.profileLoaded.first { it > before }
             }
+            kernelProxy.clearSpeedResults()
+            serverRepository.invalidateSpecialNodeSnapshots()
         }
-        kernelProxy.speedTestUntilReady()
+        kernelProxy.refreshSelectionAndMeasure()
     }
 
     companion object {

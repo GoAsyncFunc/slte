@@ -81,7 +81,9 @@ func patchGeneral(cfg *config.RawConfig, _ string) error {
 }
 
 func patchProfile(cfg *config.RawConfig, _ string) error {
-	cfg.Profile.StoreSelected = false
+	// 保留内核的组选择持久化（cache.db）：重启后由内核在加载配置时恢复选择，
+	// 应用侧仍有 ensurePersistedSelection 兜底（订阅改名等恢复不了的场景）
+	cfg.Profile.StoreSelected = true
 	cfg.Profile.StoreFakeIP = true
 
 	// 安全:订阅不得携带正则匹配脚本(ReDoS 输入面,app 侧脱敏可被绕过)

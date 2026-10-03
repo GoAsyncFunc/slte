@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import coil3.compose.SubcomposeAsyncImage
 import com.slte.app.ui.theme.SlteColors
+import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.TextSizes
 import com.slte.app.utils.Dimens
 
@@ -29,6 +31,10 @@ fun FlagPlaceholder(
     circular: Boolean = false,
 ) {
     val normalized = countryCode.lowercase()
+    if (normalized.isBlank() || normalized == UNKNOWN_COUNTRY_CODE) {
+        NeutralFlag(size = size, circular = circular, modifier = modifier)
+        return
+    }
     val flagModifier =
         if (circular) {
             modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
@@ -44,6 +50,38 @@ fun FlagPlaceholder(
         modifier = flagModifier,
     )
 }
+
+/**
+ * 国家码未知时不显示字母（历史上会把"自动选择/故障转移"渲染成 A/F 之类的字母块），
+ * 改成灰色地球占位，等真实节点就位后自然被国旗替换。
+ */
+@Composable
+private fun NeutralFlag(
+    size: Dp,
+    circular: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val shape = if (circular) CircleShape else RoundedCornerShape(Dimens.flagCornerRadius)
+    Box(
+        modifier =
+        modifier
+            .size(if (circular) size else size)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = SlteIcons.Language,
+            contentDescription = null,
+            modifier = Modifier.size(size * FlagIconRatio),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private const val UNKNOWN_COUNTRY_CODE = "xx"
+
+private const val FlagIconRatio = 0.62f
 
 @Composable
 private fun FlagFallback(

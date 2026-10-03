@@ -43,6 +43,11 @@ class ClashManager(private val context: Context) : IClashManager,
         return Clash.queryGroup(name, proxySort)
     }
 
+    override fun urlTest(name: String, timeoutMs: Int): UrlTestResult {
+        // null = 内核里没有该节点（已从订阅删除），按超时处理，不误标离线
+        return Clash.urlTest(name, timeoutMs) ?: UrlTestResult(0, UrlTestResult.KIND_TIMEOUT)
+    }
+
     override fun queryConfiguration(): UiConfiguration {
         return Clash.queryConfiguration()
     }

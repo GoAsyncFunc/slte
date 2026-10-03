@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -37,6 +39,9 @@ import com.slte.app.ui.theme.SlteColors
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
 
+/** 连接卡测试标记：界面测试用它校验卡片与屏幕底部的对齐关系。 */
+internal const val connectToggleCardTag = "dashboard_connect_card"
+
 @Composable
 fun ConnectToggleCard(
     isConnected: Boolean,
@@ -49,13 +54,16 @@ fun ConnectToggleCard(
         modifier =
         modifier
             .fillMaxWidth()
-            .heightIn(min = minHeight),
+            .heightIn(min = minHeight)
+            .testTag(connectToggleCardTag),
     ) {
+        // 铺满卡片可用高度，让开关与状态文字始终居中：卡片被撑高时不贴顶，
+        // 退到最小高度时也不会被裁掉。
         Box(
             modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = minHeight),
+                .fillMaxHeight(),
             contentAlignment = Alignment.Center,
         ) {
             Column(

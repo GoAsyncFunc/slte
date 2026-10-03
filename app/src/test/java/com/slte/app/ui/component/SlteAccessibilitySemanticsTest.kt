@@ -31,7 +31,6 @@ import com.slte.app.ui.screen.invite.InviteScreen
 import com.slte.app.ui.screen.invite.InviteViewModel
 import com.slte.app.ui.screen.order.OrdersScreen
 import com.slte.app.ui.screen.order.OrdersViewModel
-import com.slte.app.ui.screen.settings.SettingsSwitchCard
 import com.slte.app.ui.theme.SlteTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -105,7 +104,7 @@ class SlteAccessibilitySemanticsTest {
         var checked by mutableStateOf(false)
         composeRule.setContent {
             SlteTheme(darkTheme = false) {
-                SettingsSwitchCard(
+                SlteSwitchRow(
                     icon = Icons.Outlined.Info,
                     title = "自动测速",
                     checked = checked,

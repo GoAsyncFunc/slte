@@ -48,6 +48,14 @@ constructor(
         block: suspend () -> T,
     ): T = faultReporter.guard(default, operation, tag, block)
 
+    /** 唤醒内核：确保配置已加载，后面的健康检查/切换才有意义。 */
+    suspend fun warmUp(): Boolean = safe(false, "warmUp") {
+        val clash = manager.clash() ?: return@safe false
+        config.ensureProfile()
+        clash.loadActiveProfile()
+        true
+    }
+
     suspend fun coreVersion(): String? = safe(null, "coreVersion") {
         manager.clash()?.coreVersion()
     }
@@ -107,6 +115,56 @@ constructor(
         else -> TunnelState.Mode.Rule
     }
 
+    /**
+     * 记录用户在服务器页做出的选择，重启后由 [ensurePersistedSelection] 重放。
+     * 内核侧 store-selected 被补丁链关闭（native/config/process.go），选择只能由应用层自己记住。
+     */
+    internal fun persistSelection(type: SelectionType, node: String? = null) {
+        modePrefs.edit {
+            putString(KEY_SELECTION_TYPE, type.name)
+            if (node != null) putString(KEY_SELECTION_NODE, node) else remove(KEY_SELECTION_NODE)
+        }
+    }
+
+    private fun clearPersistedSelection() {
+        modePrefs.edit {
+            remove(KEY_SELECTION_TYPE)
+            remove(KEY_SELECTION_NODE)
+        }
+    }
+
+    /**
+     * 把上次的选择重放给内核。连接建立、订阅更新都会经由 [refreshSelectionAndMeasure] 走到这里。
+     * MANUAL 的节点已改名或被删时恢复不了：清掉记录、落回自动选择，不阻塞连接流程。
+     */
+    suspend fun ensurePersistedSelection() = safe(Unit, "ensurePersistedSelection") {
+        val clash = manager.clash() ?: return@safe
+        // 分组还没加载完就先不重放：此时切换必失败，会把用户的选择误当成"节点已不存在"清掉
+        if (selectorGroup() == null && waitForGroups() == null) return@safe
+        val savedType = modePrefs.getString(KEY_SELECTION_TYPE, null) ?: return@safe
+        val target = SelectionType.entries.firstOrNull { it.name == savedType } ?: run {
+            clearPersistedSelection()
+            return@safe
+        }
+        val savedNode = modePrefs.getString(KEY_SELECTION_NODE, null)
+        val info = serverInfo()
+        if (info?.selection == target && (target != SelectionType.MANUAL || info.node == savedNode)) return@safe
+
+        val restored =
+            when (target) {
+                SelectionType.AUTO -> selectAuto()
+                SelectionType.FALLBACK -> selectFallback()
+                SelectionType.MANUAL -> savedNode != null && selectNode(savedNode)
+            }
+        if (restored) {
+            AppLog.d("SLTE-Kernel", "ensurePersistedSelection: 已恢复 type=$target node=$savedNode")
+        } else {
+            AppLog.w("SLTE-Kernel", "ensurePersistedSelection: 恢复失败 type=$target node=$savedNode，落回自动选择")
+            clearPersistedSelection()
+            selectAuto()
+        }
+    }
+
     suspend fun tunStackMode(): String = safe(DEFAULT_TUN_STACK, "tunStackMode") {
         val clash = manager.clash()
         if (clash != null) {
@@ -142,6 +200,8 @@ constructor(
         private const val PREFS_NAME = "slte_kernel_mode"
         private const val KEY_PROXY_MODE = "proxy_mode"
         private const val KEY_TUN_STACK = "tun_stack"
+        private const val KEY_SELECTION_TYPE = "selection_type"
+        private const val KEY_SELECTION_NODE = "selection_node"
 
         private const val DEFAULT_TUN_STACK = "system"
         private val TUN_STACK_VALUES = setOf("system", "gvisor", "mixed")

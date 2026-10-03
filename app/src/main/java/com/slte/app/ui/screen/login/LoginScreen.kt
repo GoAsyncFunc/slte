@@ -142,8 +142,8 @@ fun LoginScreen(
                 onClick = viewModel::login,
                 modifier = Modifier.fillMaxWidth(),
                 style = SlteButtonStyle.Primary,
+                enabled = !isLoading,
                 height = Dimens.size.row,
-                loading = isLoading,
             )
 
             Spacer(modifier = Modifier.height(Dimens.gap.md))

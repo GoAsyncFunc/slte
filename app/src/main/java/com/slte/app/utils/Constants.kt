@@ -38,6 +38,9 @@ object Constants {
     const val DELAY_TIMEOUT = 999
 
     const val DELAY_INVALID_MAX = 65535
+
+    /** 单节点内核测速的等待上限：只区分"后端不在了"和"没回包"，不需要长等待。 */
+    const val NODE_URLTEST_TIMEOUT_MS = 2_000
 }
 
 object Stickers {

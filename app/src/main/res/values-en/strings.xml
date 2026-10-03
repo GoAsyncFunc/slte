@@ -36,6 +36,8 @@
     <string name="error_password_required">Enter password</string>
     <string name="error_new_password_required">Enter new password</string>
     <string name="error_invite_required">Invite code required</string>
+    <string name="register_email_local_placeholder">Email</string>
+    <string name="register_email_suffix_label">Email suffix</string>
 
     <!-- Top bar actions -->
     <string name="topbar_support">Support</string>
@@ -104,6 +106,7 @@
     <string name="server_fallback">Fallback</string>
     <string name="server_fallback_now">Fallback (%1$s)</string>
     <string name="server_timeout">Timeout</string>
+    <string name="server_offline">Offline</string>
 
     <!-- Invite -->
     <string name="invite_title">Referral</string>

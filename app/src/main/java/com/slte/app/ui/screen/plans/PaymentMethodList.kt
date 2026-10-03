@@ -67,7 +67,7 @@ internal fun PaymentMethodCell(
             onClick()
         },
         modifier = modifier.height(Dimens.paymentMethodCellHeight),
-        shape = SlteShapes.medium,
+        shape = SlteShapes.large,
         color =
         if (selected) {
             MaterialTheme.colorScheme.primary

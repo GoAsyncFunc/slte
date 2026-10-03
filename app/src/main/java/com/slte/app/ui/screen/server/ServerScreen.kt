@@ -108,19 +108,13 @@ fun ServerScreen(
                         name = stringResource(R.string.server_auto),
                         desc = stringResource(R.string.server_auto_now, data.autoNode ?: "--"),
                         icon = {
-                            val code = data.autoNodeCountryCode
-                            if (code != null) {
-                                FlagPlaceholder(countryCode = code, circular = true)
-                            } else {
-                                SpecialNodeIcon(
-                                    icon = "A",
-                                    contentDescription = stringResource(R.string.server_auto),
-                                )
-                            }
+                            // 国旗跟着组内当前节点走；还没拿到就用中性地球占位，不出现字母块
+                            FlagPlaceholder(countryCode = data.autoNodeCountryCode.orEmpty(), circular = true)
                         },
                         delay = data.autoDelay,
                         selected = data.selectedNodeId == 0,
-                        isTesting = data.isTesting,
+                        // 只在自己的延迟还没出来时转圈，不等整轮测速结束
+                        isTesting = data.isTesting && data.autoDelay == null,
                         onClick = { viewModel.selectNode(0) },
                     )
                 }
@@ -130,19 +124,11 @@ fun ServerScreen(
                         name = stringResource(R.string.server_fallback),
                         desc = stringResource(R.string.server_fallback_now, data.fallbackNode ?: "--"),
                         icon = {
-                            val code = data.fallbackNodeCountryCode
-                            if (code != null) {
-                                FlagPlaceholder(countryCode = code, circular = true)
-                            } else {
-                                SpecialNodeIcon(
-                                    icon = "F",
-                                    contentDescription = stringResource(R.string.server_fallback),
-                                )
-                            }
+                            FlagPlaceholder(countryCode = data.fallbackNodeCountryCode.orEmpty(), circular = true)
                         },
                         delay = data.fallbackDelay,
                         selected = data.selectedNodeId == -1,
-                        isTesting = data.isTesting,
+                        isTesting = data.isTesting && data.fallbackDelay == null,
                         onClick = { viewModel.selectNode(-1) },
                     )
                 }
@@ -161,6 +147,7 @@ fun ServerScreen(
                             }
                         },
                         delay = node.delay,
+                        offline = node.offline,
                         selected = data.selectedNodeId == node.id,
                         isTesting = data.isTesting && node.name !in data.testedNodes,
                         onClick = { viewModel.selectNode(node.id) },
@@ -180,6 +167,7 @@ private fun NodeCard(
     selected: Boolean,
     isTesting: Boolean,
     onClick: () -> Unit,
+    offline: Boolean = false,
 ) {
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     Surface(
@@ -227,11 +215,23 @@ private fun NodeCard(
 
             if (isTesting) {
                 LottieLoadingIcon(modifier = Modifier.size(Dimens.icon.lg))
+            } else if (offline) {
+                OfflineText()
             } else if (delay != null) {
-                DelayText(delay = delay)
+                DelayText(delay)
             }
         }
     }
+}
+
+@Composable
+private fun OfflineText() {
+    Text(
+        text = stringResource(R.string.server_offline),
+        fontWeight = FontWeight.SemiBold,
+        style = SlteType.label,
+        color = SlteColors.current.statusDanger,
+    )
 }
 
 @Composable

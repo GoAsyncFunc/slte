@@ -76,6 +76,7 @@ fun WithdrawSheet(
             icon = SlteIcons.AtSign,
             iconDesc = stringResource(R.string.invite_withdraw_account_label),
             size = SlteInputSize.Compact,
+            onSheet = true,
         )
     }
 }

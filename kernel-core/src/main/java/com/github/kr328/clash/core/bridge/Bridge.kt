@@ -28,6 +28,7 @@ object Bridge {
     external fun nativeHealthCheck(completable: CompletableDeferred<Unit>, name: String)
     external fun nativeHealthCheckAll()
     external fun nativePatchSelector(selector: String, name: String): Boolean
+    external fun nativeUrlTest(name: String, timeoutMs: Int): String?
     external fun nativeFetchAndValid(
         completable: FetchCallback,
         path: String,

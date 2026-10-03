@@ -19,6 +19,9 @@ interface IClashManager {
 
     fun patchSelector(group: String, name: String): Boolean
 
+    /** 对单个节点跑一次真实测速并分类失败原因（离线/超时）；节点不存在时 kind 返回 timeout */
+    fun urlTest(name: String, timeoutMs: Int): UrlTestResult
+
     suspend fun healthCheck(group: String)
     fun healthCheckAll()
     suspend fun updateProvider(type: Provider.Type, name: String)
