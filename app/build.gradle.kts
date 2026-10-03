@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.roborazzi)
 }
 
 ktlint {
@@ -256,6 +257,8 @@ dependencies {
     testImplementation(libs.androidx.ui.test.junit4)
 
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
