@@ -33,7 +33,8 @@ func classifyUrlTestError(err error) string {
 		return ""
 	}
 
-	msg := err.Error()
+	// 第三方库的错误文本大小写不统一（如 "Connection refused"），统一小写后再匹配
+	msg := strings.ToLower(err.Error())
 
 	for _, hint := range urlTestOfflineHints {
 		if strings.Contains(msg, hint) {
