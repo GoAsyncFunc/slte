@@ -117,7 +117,10 @@ constructor(
 
     /**
      * 记录用户在服务器页做出的选择，重启后由 [ensurePersistedSelection] 重放。
-     * 内核侧 store-selected 被补丁链关闭（native/config/process.go），选择只能由应用层自己记住。
+     *
+     * 节点选择现在是双层持久化：内核侧 store-selected 已开启（native/config/process.go），
+     * 配置加载瞬间由 cache.db 恢复流量路径；应用侧这份是 UI 真值来源，
+     * 并兜底内核恢复不了的场景（订阅改名/节点被删时回落自动选择）。
      */
     internal fun persistSelection(type: SelectionType, node: String? = null) {
         modePrefs.edit {
