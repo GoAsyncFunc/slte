@@ -8,7 +8,6 @@ import com.github.kr328.clash.service.data.migrations.LEGACY_MIGRATION
 import com.github.kr328.clash.service.data.migrations.MIGRATIONS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.lang.ref.SoftReference
 import androidx.room.Database as DB
 
 @DB(
@@ -22,14 +21,13 @@ abstract class Database : RoomDatabase() {
     abstract fun openSelectionProxyDao(): SelectionDao
 
     companion object {
-        val database: Database
-            @Synchronized get() {
-                return softDatabase.get() ?: open(Global.application).apply {
-                    softDatabase = SoftReference(this)
-                }
-            }
+        // 进程内常驻单例：SoftReference 会在内存压力下丢弃已打开的数据库，
+        // 导致下一次访问整套重新 open，没有任何收益；Room 自己管理 WAL 与连接池
+        @Volatile
+        private var instance: Database? = null
 
-        private var softDatabase: SoftReference<Database?> = SoftReference(null)
+        val database: Database
+            @Synchronized get() = instance ?: open(Global.application).also { instance = it }
 
         private fun open(context: Context): Database {
             return Room.databaseBuilder(
