@@ -35,7 +35,7 @@ SLTE 的配置分三层，按优先级从高到低：
 
 > 安全白名单：凭据（JWT / 订阅 token）只发往白名单内域名。
 > 白名单 = `SLTE_ALLOWED_DOMAINS` + API 地址域名 + 远程配置源域名（构建期自动并入），
-> 运行时校验见 `RemoteConfig.ALLOWED_HOST_SUFFIXES`。
+> 运行时校验见 `AllowedHosts.SUFFIXES`（`app/src/main/java/com/slte/app/data/remote/config/AllowedHosts.kt`）。
 
 ---
 

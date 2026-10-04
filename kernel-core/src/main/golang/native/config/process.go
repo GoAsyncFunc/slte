@@ -96,7 +96,7 @@ func patchProfile(cfg *config.RawConfig, _ string) error {
 	return nil
 }
 
-// 自家后端域名：必须与 app 侧 RemoteConfig.ALLOWED_HOST_SUFFIXES 保持同步，
+// 自家后端域名：必须与 app 侧 AllowedHosts.SUFFIXES 保持同步（构建期由 SLTE_ALLOWED_DOMAINS 注入），
 // 新增白名单域时同步此清单（app 清洗注入 + 内核兜底双防线一致）
 var directDomains = []string{"example.com"}
 
