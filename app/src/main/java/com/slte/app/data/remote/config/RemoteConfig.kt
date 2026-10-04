@@ -100,7 +100,7 @@ constructor(
     val dataFlow: StateFlow<RemoteConfigData> = _dataFlow.asStateFlow()
     val data: RemoteConfigData get() = _dataFlow.value
 
-        fun apiCandidates(primary: String): List<String> = selector.candidateOrder(primary, dataFlow.value.apiBaseUrls)
+    fun apiCandidates(primary: String): List<String> = selector.candidateOrder(primary, dataFlow.value.apiBaseUrls)
 
     fun startFetch() {
         scope.launch { refresh(force = true) }
@@ -110,8 +110,7 @@ constructor(
         scope.launch { prober.loop(PROBE_LOOP_INTERVAL_MS) }
     }
 
-    suspend fun refresh(force: Boolean = false): Boolean =
-        // 启动首拉与手动强刷可能并发，竞速/探测/选主全程互斥，避免乱序写盘与探测流量翻倍
+    suspend fun refresh(force: Boolean = false): Boolean = // 启动首拉与手动强刷可能并发，竞速/探测/选主全程互斥，避免乱序写盘与探测流量翻倍
         refreshMutex.withLock {
             refreshLocked(force)
         }

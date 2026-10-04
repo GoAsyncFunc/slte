@@ -22,8 +22,7 @@ class ApiFailoverInterceptorTest {
     private val primary: String get() = server1.url("/").toString()
     private val backup: String get() = server2.url("/").toString()
 
-    private fun failoverConfig(): RemoteConfig =
-        // 接口层已删（生产只装配具体类型），测试用 mockk 保持隔离
+    private fun failoverConfig(): RemoteConfig = // 接口层已删（生产只装配具体类型），测试用 mockk 保持隔离
         mockk {
             every { apiBaseUrl } returns primary
             every { apiCandidates(any()) } answers { listOf(primary, backup) }

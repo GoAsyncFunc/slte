@@ -13,11 +13,6 @@ import com.slte.app.domain.usecase.purchase.OrderPaymentLoad
 import com.slte.app.domain.usecase.purchase.OrderPaymentLoader
 import com.slte.app.domain.usecase.purchase.OrderPaymentPoller
 import com.slte.app.domain.usecase.purchase.PaymentCheckout
-import com.slte.app.domain.usecase.purchase.PollOutcome
-import com.slte.app.domain.usecase.purchase.computeCouponDiscount
-import com.slte.app.domain.usecase.purchase.decideCheckoutStep
-import com.slte.app.domain.usecase.purchase.finalPriceCents
-import com.slte.app.domain.usecase.purchase.pollOutcome
 import com.slte.app.utils.AppLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

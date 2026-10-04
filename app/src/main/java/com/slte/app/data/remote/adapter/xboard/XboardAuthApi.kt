@@ -28,9 +28,9 @@ import com.slte.app.utils.ApiErrors
 import com.slte.app.utils.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 
 class XboardAuthApi(
     private val authApi: XboardAuthRetrofit,

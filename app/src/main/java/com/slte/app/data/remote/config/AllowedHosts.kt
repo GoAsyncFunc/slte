@@ -16,5 +16,4 @@ internal object AllowedHosts {
         }
 
     fun isAllowedHost(host: String?): Boolean = !host.isNullOrBlank() && ConfigValidation.isHostAllowed(host.lowercase(), SUFFIXES)
-
 }

@@ -28,7 +28,7 @@ sealed interface WithdrawMethodsState {
     object Failed : WithdrawMethodsState
 
     @Immutable
-data class Ready(val methods: List<String>) : WithdrawMethodsState
+    data class Ready(val methods: List<String>) : WithdrawMethodsState
 }
 
 enum class InviteSheet { None, Transfer, Withdraw }

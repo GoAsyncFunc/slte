@@ -191,7 +191,6 @@ class EndpointSelectorInvariantsTest {
         assertEquals(40L, endpoints.first { it.url == c }.lastLatencyMs)
     }
 
-
     @Test
     fun `半开候选只含达到阈值的地址并按字典序排列`() {
         val selector = EndpointSelector()

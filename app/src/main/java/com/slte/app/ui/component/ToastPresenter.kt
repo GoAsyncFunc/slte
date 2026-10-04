@@ -13,9 +13,9 @@ import androidx.compose.ui.platform.LocalContext
  * 统一入口的意义在于后续换成应用内自绘气泡时只改这一个类。
  */
 class ToastHandle
-    internal constructor(
-        private val context: Context,
-    ) {
+internal constructor(
+    private val context: Context,
+) {
     fun show(
         message: String,
         centered: Boolean = false,

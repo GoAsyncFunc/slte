@@ -36,8 +36,8 @@ import com.slte.app.R
 import com.slte.app.ui.component.AnimatedSticker
 import com.slte.app.ui.component.LottieLoadingIcon
 import com.slte.app.ui.component.SlteCard
-import com.slte.app.ui.component.rememberToast
 import com.slte.app.ui.component.SlteScaffold
+import com.slte.app.ui.component.rememberToast
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.AppLog
