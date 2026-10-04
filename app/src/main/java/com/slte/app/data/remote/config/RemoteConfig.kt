@@ -54,8 +54,7 @@ class RemoteConfig
 @Inject
 constructor(
     @ApplicationContext private val context: Context,
-) : AppRemoteConfig,
-    FailoverConfig {
+) : AppRemoteConfig {
     override val apiBaseUrl: String get() = data.apiBaseUrl
 
     override val directDomains: List<String> get() = data.directDomains
@@ -101,7 +100,7 @@ constructor(
     val dataFlow: StateFlow<RemoteConfigData> = _dataFlow.asStateFlow()
     val data: RemoteConfigData get() = _dataFlow.value
 
-    override fun apiCandidates(primary: String): List<String> = selector.candidateOrder(primary, dataFlow.value.apiBaseUrls)
+        fun apiCandidates(primary: String): List<String> = selector.candidateOrder(primary, dataFlow.value.apiBaseUrls)
 
     fun startFetch() {
         scope.launch { refresh(force = true) }
@@ -127,7 +126,7 @@ constructor(
 
         val urls = store.orderedConfigUrls()
         if (urls.isEmpty()) return false
-        val result =
+        val chosen =
             try {
                 withTimeout(CONFIG_FETCH_TIMEOUT_MS) {
                     ConfigRace.race(urls) { url -> fetchOne(url, cached) }
@@ -138,7 +137,7 @@ constructor(
                 AppLog.w("SLTE-Config", "RemoteConfig: 配置竞速失败: ${sanitize(e.message)}")
                 return false
             }
-        val chosen = result.chosen ?: return false
+        if (chosen == null) return false
 
         if (chosen.notModified && cached != null) {
             store.save(cached.copy(fetchedAt = now, sourceUrl = chosen.url))
@@ -164,8 +163,6 @@ constructor(
                 probes = probes,
                 currentPrimary = data.apiBaseUrl.takeIf { it in candidates },
             ) ?: BuildConfig.API_BASE_URL
-        selector.updatePrimary(primary)
-
         val compatible = candidates.filter { ConfigValidation.hasSamePath(it, primary) }
         if (compatible.size != candidates.size) {
             AppLog.w(

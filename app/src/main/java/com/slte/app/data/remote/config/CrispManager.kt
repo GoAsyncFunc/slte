@@ -98,8 +98,6 @@ constructor() {
         }
     }
 
-    fun isEnabled(): Boolean = config?.enabled == true && initialized
-
     private companion object {
         const val TAG = "SLTE-Crisp"
     }

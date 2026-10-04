@@ -1,5 +1,7 @@
 package com.slte.app.data.remote.config
 
+import io.mockk.every
+import io.mockk.mockk
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -20,11 +22,12 @@ class ApiFailoverInterceptorTest {
     private val primary: String get() = server1.url("/").toString()
     private val backup: String get() = server2.url("/").toString()
 
-    private fun failoverConfig() = object : FailoverConfig {
-        override val apiBaseUrl: String = primary
-
-        override fun apiCandidates(primary: String): List<String> = listOf(primary, backup)
-    }
+    private fun failoverConfig(): RemoteConfig =
+        // 接口层已删（生产只装配具体类型），测试用 mockk 保持隔离
+        mockk {
+            every { apiBaseUrl } returns primary
+            every { apiCandidates(any()) } answers { listOf(primary, backup) }
+        }
 
     private fun ok() = MockResponse()
         .setResponseCode(200)
@@ -136,10 +139,9 @@ class ApiFailoverInterceptorTest {
     @Test
     fun `候选列表重复时全部故障不抛异常`() {
         val dupConfig =
-            object : FailoverConfig {
-                override val apiBaseUrl: String = primary
-
-                override fun apiCandidates(primary: String): List<String> = listOf(primary, primary)
+            mockk<RemoteConfig> {
+                every { apiBaseUrl } returns primary
+                every { apiCandidates(any()) } answers { listOf(primary, primary) }
             }
         val dupClient =
             OkHttpClient
@@ -160,10 +162,9 @@ class ApiFailoverInterceptorTest {
     @Test
     fun `单候选故障时直接返回故障响应`() {
         val singleConfig =
-            object : FailoverConfig {
-                override val apiBaseUrl: String = primary
-
-                override fun apiCandidates(primary: String): List<String> = listOf(primary)
+            mockk<RemoteConfig> {
+                every { apiBaseUrl } returns primary
+                every { apiCandidates(any()) } answers { listOf(primary) }
             }
         val singleClient =
             OkHttpClient

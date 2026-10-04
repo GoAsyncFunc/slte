@@ -14,9 +14,7 @@ class EndpointSelectorInvariantsTest {
     @Test
     fun `初始状态为主地址为空且端点快照为空`() {
         val selector = EndpointSelector()
-        val state = selector.state.value
-        assertNull(state.primary)
-        assertTrue(state.endpoints.isEmpty())
+        assertTrue(selector.snapshot().isEmpty())
     }
 
     @Test
@@ -131,12 +129,12 @@ class EndpointSelectorInvariantsTest {
     fun `失败累计到阈值前保持降级状态`() {
         val selector = EndpointSelector()
         selector.recordFailure(a)
-        val first = selector.state.value.endpoints.first { it.url == a }
+        val first = selector.snapshot().first { it.url == a }
         assertEquals(HealthState.DEGRADED, first.state)
         assertEquals(1, first.consecutiveFailures)
 
         selector.recordFailure(a)
-        val second = selector.state.value.endpoints.first { it.url == a }
+        val second = selector.snapshot().first { it.url == a }
         assertEquals(HealthState.DEGRADED, second.state)
         assertEquals(2, second.consecutiveFailures)
     }
@@ -147,7 +145,7 @@ class EndpointSelectorInvariantsTest {
         val now = System.currentTimeMillis()
         repeat(3) { selector.recordFailure(a) }
 
-        val snapshot = selector.state.value.endpoints.first { it.url == a }
+        val snapshot = selector.snapshot().first { it.url == a }
         assertEquals(HealthState.OPEN, snapshot.state)
         assertEquals(3, snapshot.consecutiveFailures)
         assertTrue(selector.isOpen(a, now))
@@ -167,14 +165,14 @@ class EndpointSelectorInvariantsTest {
         repeat(3) { selector.recordFailure(a) }
 
         selector.recordProbe(a, 42L)
-        val probed = selector.state.value.endpoints.first { it.url == a }
+        val probed = selector.snapshot().first { it.url == a }
         assertEquals(HealthState.HEALTHY, probed.state)
         assertEquals(0, probed.consecutiveFailures)
         assertEquals(42L, probed.lastLatencyMs)
 
         selector.recordFailure(a)
         selector.recordSuccess(a, 7L)
-        val succeeded = selector.state.value.endpoints.first { it.url == a }
+        val succeeded = selector.snapshot().first { it.url == a }
         assertEquals(HealthState.HEALTHY, succeeded.state)
         assertEquals(0, succeeded.consecutiveFailures)
         assertEquals(7L, succeeded.lastLatencyMs)
@@ -188,21 +186,11 @@ class EndpointSelectorInvariantsTest {
         selector.recordSuccess(b, 30L)
         selector.recordSuccess(c, 40L)
 
-        val endpoints = selector.state.value.endpoints
+        val endpoints = selector.snapshot()
         assertEquals(listOf(a, b, c), endpoints.map { it.url })
         assertEquals(40L, endpoints.first { it.url == c }.lastLatencyMs)
     }
 
-    @Test
-    fun `健康记录不改写主地址字段`() {
-        val selector = EndpointSelector()
-        selector.updatePrimary(a)
-        selector.recordFailure(b)
-        assertEquals(a, selector.state.value.primary)
-
-        selector.updatePrimary(null)
-        assertNull(selector.state.value.primary)
-    }
 
     @Test
     fun `半开候选只含达到阈值的地址并按字典序排列`() {

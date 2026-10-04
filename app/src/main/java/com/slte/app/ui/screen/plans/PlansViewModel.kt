@@ -66,35 +66,13 @@ constructor(
     }
 
     fun refresh() {
+        // Refreshing 沿用现有列表（不闪加载态），与首次加载的 Loading 区分
         if (_data.value.phase == ContentPhase.Refreshing) return
-        _data.update { it.copy(phase = ContentPhase.Refreshing) }
-        viewModelScope.launch {
-            orderRepository.fetchPlans().fold(
-                onSuccess = { plans ->
-                    _data.update {
-                        it.copy(
-                            plans = plans.filter { p -> p.show },
-                            phase = ContentPhase.Idle,
-                            isEntering = false,
-                            errorMessageRes = null,
-                        )
-                    }
-                },
-                onFailure = { throwable ->
-                    _data.update {
-                        it.copy(
-                            phase = ContentPhase.Idle,
-                            isEntering = false,
-                            errorMessageRes = ErrorMessages.forOrder(throwable),
-                        )
-                    }
-                },
-            )
-        }
+        loadPlans(ContentPhase.Refreshing)
     }
 
-    private fun loadPlans() {
-        _data.update { it.copy(phase = ContentPhase.Loading, errorMessageRes = null) }
+    private fun loadPlans(phase: ContentPhase = ContentPhase.Loading) {
+        _data.update { it.copy(phase = phase, errorMessageRes = null) }
         viewModelScope.launch {
             orderRepository.fetchPlans().fold(
                 onSuccess = { plans ->

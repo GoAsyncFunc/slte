@@ -34,7 +34,7 @@ class ConfigRaceAggregationTest {
                 calls.incrementAndGet()
                 fetched("1.0", 0L)
             }
-        assertNull(result.chosen)
+        assertNull(result)
         assertEquals(0, calls.get())
     }
 
@@ -57,8 +57,8 @@ class ConfigRaceAggregationTest {
             ConfigRace.race(listOf(primaryUrl, secondaryUrl)) { url ->
                 if (url == primaryUrl) fetched("1.0", 10L) else fetched("1.0", 20L)
             }
-        assertEquals(primaryUrl, result.chosen?.url)
-        assertNotEquals(spoofedUrl, result.chosen?.url)
+        assertEquals(primaryUrl, result?.url)
+        assertNotEquals(spoofedUrl, result?.url)
     }
 
     @Test
@@ -67,8 +67,8 @@ class ConfigRaceAggregationTest {
             ConfigRace.race(listOf(primaryUrl, secondaryUrl)) { url ->
                 if (url == primaryUrl) fetched("1.9", 1L) else fetched("1.10", 900L)
             }
-        assertEquals(secondaryUrl, result.chosen?.url)
-        assertEquals("1.10", result.chosen?.version)
+        assertEquals(secondaryUrl, result?.url)
+        assertEquals("1.10", result?.version)
     }
 
     @Test
@@ -77,8 +77,8 @@ class ConfigRaceAggregationTest {
             ConfigRace.race(listOf(primaryUrl, secondaryUrl)) { url ->
                 if (url == primaryUrl) fetched("2.0", 500L) else fetched("2.0", 100L)
             }
-        assertEquals(secondaryUrl, result.chosen?.url)
-        assertEquals(100L, result.chosen?.latencyMs)
+        assertEquals(secondaryUrl, result?.url)
+        assertEquals(100L, result?.latencyMs)
     }
 
     @Test
@@ -87,7 +87,7 @@ class ConfigRaceAggregationTest {
             ConfigRace.race(listOf(primaryUrl, secondaryUrl)) { url ->
                 if (url == primaryUrl) fetched("3.0", 50L) else fetched("3.0", 50L)
             }
-        assertEquals(primaryUrl, result.chosen?.url)
+        assertEquals(primaryUrl, result?.url)
     }
 
     @Test
@@ -99,9 +99,9 @@ class ConfigRaceAggregationTest {
                 if (url == primaryUrl) fetched("1.0", 10L, notModified = true) else null
             }
         assertEquals(2, calls.get())
-        assertEquals(primaryUrl, result.chosen?.url)
-        assertEquals("raw-1.0", result.chosen?.raw)
-        assertTrue(result.chosen?.notModified == true)
+        assertEquals(primaryUrl, result?.url)
+        assertEquals("raw-1.0", result?.raw)
+        assertTrue(result?.notModified == true)
     }
 
     @Test
@@ -112,15 +112,15 @@ class ConfigRaceAggregationTest {
                 calls.incrementAndGet()
                 null
             }
-        assertNull(result.chosen)
+        assertNull(result)
         assertEquals(2, calls.get())
     }
 
     @Test
     fun `单地址成功时返回该地址`() = runTest {
         val result = ConfigRace.race(listOf(primaryUrl)) { fetched("5.0", 12L) }
-        assertEquals(primaryUrl, result.chosen?.url)
-        assertEquals("raw-5.0", result.chosen?.raw)
+        assertEquals(primaryUrl, result?.url)
+        assertEquals("raw-5.0", result?.raw)
     }
 
     @Test

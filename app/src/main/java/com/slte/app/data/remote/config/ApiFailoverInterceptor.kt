@@ -10,7 +10,7 @@ import okhttp3.Request
 import okhttp3.Response
 
 class ApiFailoverInterceptor(
-    private val config: FailoverConfig,
+    private val config: RemoteConfig,
     private val selector: EndpointSelector,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {

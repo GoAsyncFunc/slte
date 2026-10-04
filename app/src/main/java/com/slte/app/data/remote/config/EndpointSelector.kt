@@ -3,10 +3,6 @@ package com.slte.app.data.remote.config
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 
 data class EndpointSnapshot(
     val url: String,
@@ -15,20 +11,24 @@ data class EndpointSnapshot(
     val lastLatencyMs: Long,
 )
 
-data class EndpointSelectionState(
-    val primary: String?,
-    val endpoints: List<EndpointSnapshot>,
-)
-
 @Singleton
 class EndpointSelector
 @Inject
 constructor() {
     private val healthMap = ConcurrentHashMap<String, EndpointHealth>()
 
-    private val _state = MutableStateFlow(EndpointSelectionState(null, emptyList()))
-
-    val state: StateFlow<EndpointSelectionState> = _state.asStateFlow()
+    /** 按需计算的只读快照：仅测试与诊断用，record* 热路径不再重建。 */
+    fun snapshot(): List<EndpointSnapshot> {
+        val now = System.currentTimeMillis()
+        return healthMap.entries.sortedBy { it.key }.map { (url, h) ->
+            EndpointSnapshot(
+                url = url,
+                state = EndpointHealthRules.state(h, now),
+                consecutiveFailures = h.consecutiveFailures,
+                lastLatencyMs = h.lastLatencyMs,
+            )
+        }
+    }
 
     fun recordSuccess(
         url: String,
@@ -39,7 +39,6 @@ constructor() {
         healthMap.compute(url) { _, previous ->
             EndpointHealthRules.onSuccess(previous ?: EndpointHealth(url), latencyMs, now)
         }
-        refreshState()
     }
 
     fun recordFailure(url: String) {
@@ -47,7 +46,6 @@ constructor() {
         healthMap.compute(url) { _, previous ->
             EndpointHealthRules.onFailure(previous ?: EndpointHealth(url), now)
         }
-        refreshState()
     }
 
     fun recordProbe(
@@ -58,7 +56,6 @@ constructor() {
         healthMap.compute(url) { _, previous ->
             EndpointHealthRules.onSuccess(previous ?: EndpointHealth(url), latencyMs, now)
         }
-        refreshState()
     }
 
     fun isOpen(
@@ -124,27 +121,5 @@ constructor() {
         EndpointHealthRules.state(health, now) == HealthState.HALF_OPEN -> 2
         EndpointHealthRules.state(health, now) == HealthState.DEGRADED -> 1
         else -> 0
-    }
-
-    private fun refreshState() {
-        val now = System.currentTimeMillis()
-        _state.update { previous ->
-            EndpointSelectionState(
-                primary = previous.primary,
-                endpoints =
-                healthMap.entries.sortedBy { it.key }.map { (url, h) ->
-                    EndpointSnapshot(
-                        url = url,
-                        state = EndpointHealthRules.state(h, now),
-                        consecutiveFailures = h.consecutiveFailures,
-                        lastLatencyMs = h.lastLatencyMs,
-                    )
-                },
-            )
-        }
-    }
-
-    internal fun updatePrimary(primary: String?) {
-        _state.update { it.copy(primary = primary) }
     }
 }
