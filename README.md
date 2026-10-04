@@ -75,7 +75,7 @@ SLTE_RELEASE_KEY_PASSWORD=<密码> \
 
 > **安全白名单**：为防配置投毒导致凭据外泄，API 地址与远程配置中的直连域名只允许在域名白名单内切换。白名单 = `SLTE_ALLOWED_DOMAINS` 追加项 + API 地址域名 + 远程配置源域名，构建期自动并入（详见 [CONFIG.md](CONFIG.md)），**无需修改代码**。仓库内置占位符 `example.com`，部署前请通过环境变量或 `app/gradle.properties` 注入你的域名。
 >
-> **内核直连兜底**：内核侧补丁链（`kernel-core/src/main/golang/native/config/process.go`）含独立的直连域名占位（与构建注入互不影响），自持域名需在此同步，并在修改后重新交叉编译 `libclash.so`（`GOOS=linux GOARCH=arm64 go build -tags "android cmfa with_gvisor" ./native/config/`，无需 NDK）。
+> **内核直连兜底**：内核侧补丁链（`kernel-core/src/main/golang/native/config/process.go`）含独立的直连域名占位（与构建注入互不影响），自持域名需在此同步，并在修改后重建 `libclash.so`：交叉编译命令以 `kernel-core/src/main/jniLibs/arm64-v8a/VERSION.md` 为准（需要 NDK 里的 clang 作交叉编译器，`-buildmode=c-shared`），重建后必须把新摘要写回同目录 `SHA256SUMS`，否则构建会被 `:kernel-core:verifyNativeLibraries` 拦下。
 
 ## 相关项目
 
