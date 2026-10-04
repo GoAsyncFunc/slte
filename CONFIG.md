@@ -2,7 +2,7 @@
 
 SLTE 的配置分三层，按优先级从高到低：
 
-1. **环境变量**（CI secrets / 发布时 `export`）—— 最高优先级
+1. **环境变量**（发布时 `export`；本项目无 CI，签名与真实域名只留在本机与安全备份里）—— 最高优先级
 2. **`app/gradle.properties`**（本地文件，已被 .gitignore 忽略，不入库）—— 日常开发测试改这里
 3. **远程配置 JSON**（部署在 OSS/Worker 上，运行时下发）—— 运行时可调，无需重新编译
 
@@ -16,7 +16,7 @@ SLTE 的配置分三层，按优先级从高到低：
 
 | 变量 | 默认值 | 作用 |
 |---|---|---|
-| `SLTE_APP_NAME` | `SLTE` | 应用显示名（桌面名称；图标需自行替换 res/mipmap） |
+| `SLTE_APP_NAME` | `SLTE` | 应用显示名（桌面名称；图标母版 `app/icon-source.png`，替换后重新生成 `res/drawable-nodpi/ic_launcher_foreground.png`） |
 | `SLTE_VERSION_CODE` | `1` | 版本号（整数） |
 | `SLTE_VERSION_NAME` | `1.0.0` | 版本号（显示） |
 | `SLTE_API_BASE_URL` | `https://api.example.com` | 后端 API 主地址（https） |
