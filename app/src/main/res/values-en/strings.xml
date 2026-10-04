@@ -269,6 +269,7 @@
     <string name="purchase_payment_method">Payment method</string>
     <string name="purchase_payment_method_empty">No payment methods</string>
     <string name="purchase_pay_amount">Pay ¥%s</string>
+    <string name="purchase_pay_timeout">Payment confirmation timed out. Check the result in Orders later.</string>
     <string name="purchase_existing_order_title">Pending order</string>
     <string name="purchase_existing_order_message">You have a pending order</string>
     <string name="purchase_error_title">Create failed</string>

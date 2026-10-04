@@ -266,6 +266,7 @@
     <string name="purchase_payment_method">选择支付方式</string>
     <string name="purchase_payment_method_empty">暂无可用支付方式</string>
     <string name="purchase_pay_amount">支付 ¥%s</string>
+    <string name="purchase_pay_timeout">支付结果确认超时，请稍后到订单页查看结果</string>
     <string name="purchase_existing_order_title">存在未支付订单</string>
     <string name="purchase_existing_order_message">您有一个未完成的订单</string>
     <string name="purchase_error_title">创建失败</string>

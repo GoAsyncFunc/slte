@@ -20,6 +20,7 @@ constructor(
         scope: CoroutineScope,
         tradeNo: String,
         onCompleted: (String) -> Unit,
+        onTimeout: () -> Unit = {},
     ) {
         if (pollJob?.isActive == true && pollingTradeNo == tradeNo) return
         AppLog.d(TAG, "startOrderPolling: tradeNo=$tradeNo")
@@ -42,6 +43,9 @@ constructor(
                         return@launch
                     }
                 }
+                // 超时不能静默：用户停留在支付流程里必须知道去哪里确认结果
+                AppLog.w(TAG, "poll 超时: tradeNo=$tradeNo")
+                onTimeout()
             }
     }
 

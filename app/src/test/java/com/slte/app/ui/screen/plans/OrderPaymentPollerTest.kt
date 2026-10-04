@@ -18,7 +18,7 @@ class OrderPaymentPollerTest {
         api.orderDetail = order(status = 3)
         var completedTradeNo: String? = null
 
-        poller.start(this, "TN-1") { completedTradeNo = it }
+        poller.start(this, "TN-1", onCompleted = { completedTradeNo = it })
         delay(4_000)
 
         assertEquals("TN-1", completedTradeNo)
@@ -29,8 +29,8 @@ class OrderPaymentPollerTest {
     fun `同一订单重复启动只轮询一次`() = runBlocking {
         api.orderDetail = order(status = 3)
 
-        poller.start(this, "TN-1") { }
-        poller.start(this, "TN-1") { }
+        poller.start(this, "TN-1", onCompleted = {})
+        poller.start(this, "TN-1", onCompleted = {})
         delay(4_000)
 
         assertEquals("去重后只应发起一次查询", 1, api.orderDetailCalls)
@@ -40,7 +40,7 @@ class OrderPaymentPollerTest {
     fun `停掉轮询后不再查询也不再回调`() = runBlocking {
         api.orderDetail = order(status = 3)
 
-        poller.start(this, "TN-1") { fail("已停止的轮询不应回调") }
+        poller.start(this, "TN-1", onCompleted = { fail("已停止的轮询不应回调") })
         poller.stop()
         delay(4_000)
 
@@ -52,7 +52,7 @@ class OrderPaymentPollerTest {
         api.orderDetail = order(status = 0)
         var completed = false
 
-        poller.start(this, "TN-1") { completed = true }
+        poller.start(this, "TN-1", onCompleted = { completed = true })
         delay(4_000)
 
         assertEquals("待支付应继续轮询", 1, api.orderDetailCalls)
