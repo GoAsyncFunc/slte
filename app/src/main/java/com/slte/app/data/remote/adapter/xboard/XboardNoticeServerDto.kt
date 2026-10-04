@@ -42,6 +42,11 @@ data class XboardServerData(
     val tags: List<String>? = null,
     @SerialName("is_online")
     val isOnline: Int = 1,
+
+    // 连接字段：部分 xboard 版本的 server/fetch 不下发，缺省为空；
+    // 节点的真实连接信息以订阅 YAML 为准，这里只影响列表展示
+    val host: String = "",
+    val port: Int = 0,
 ) {
     private fun resolveType(): ServerType = when (type) {
         "shadowsocks" -> ServerType.SHADOWSOCKS
@@ -59,7 +64,7 @@ data class XboardServerData(
         id = id,
         name = name,
         type = resolveType(),
-        host = "",
-        port = 0,
+        host = host,
+        port = port,
     )
 }

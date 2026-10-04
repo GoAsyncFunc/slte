@@ -28,6 +28,7 @@ import com.slte.app.utils.ApiErrors
 import com.slte.app.utils.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -260,7 +261,13 @@ class XboardAuthApi(
     }
 
     override suspend fun redeemGiftCard(code: String) {
-        AdapterExecute.typed { userApi.redeemGiftCard(XboardGiftCardRedeemRequest(code)) }
+        val response =
+            AdapterExecute.typed {
+                userApi.redeemGiftCard(XboardGiftCardRedeemRequest(code))
+            }
+        // 与 xiaov2b 对齐：HTTP 200 但 data 非 JSON true 仍是失败，不能静默报成功
+        val redeemed = (response.data as? JsonPrimitive)?.booleanOrNull == true
+        if (!redeemed) throw ApiException(response.message ?: "兑换失败", ApiErrors.GIFT_CARD)
         AppLog.i("SLTE-Api", "redeemGiftCard success")
     }
 

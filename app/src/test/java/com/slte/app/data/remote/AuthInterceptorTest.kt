@@ -149,13 +149,15 @@ class AuthInterceptorTest {
     }
 
     @Test
-    fun `非认证接口的401同样清会话`() {
+    fun `非认证接口的401不再踢登录`() {
+        // guest/config 等非 /api/v1/user/ 路径的 401 是接口级失败（如 CDN/WAF），
+        // 不应清掉整个登录态；令牌过期的踢出只发生在认证接口上
         every { sessionStore.getAuthData() } returns "token-a"
         val chain = chain(request(url = "https://example.com${ApiPaths.PREFIX}/guest/comm/config"), code = 401)
 
         interceptor.intercept(chain)
 
-        verify { sessionStore.clear() }
+        verify(exactly = 0) { sessionStore.clear() }
     }
 
     @Test

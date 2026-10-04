@@ -38,11 +38,13 @@ internal object AuthRules {
         hasAuthHeader: Boolean,
         responseCode: Int,
         isAuthFailureBody: Boolean,
+        isAuthPath: Boolean,
     ): Decision {
         val attachToken = token != null && isAllowedHost && !hasAuthHeader
+        // 401 与 403 同门控：白名单内非 auth 路径（订阅 CDN/WAF 等）的 401 不再踢登录，
+        // 只要是 /api/v1/user/ 下的鉴权接口返回 401，令牌过期依然会被正确清理
         val authFailed =
-            responseCode == 401 ||
-                (responseCode == 403 && isAuthFailureBody)
+            (responseCode == 401 || (responseCode == 403 && isAuthFailureBody)) && isAuthPath
         val clearSession = authFailed && token != null
         return Decision(attachToken = attachToken, clearSession = clearSession)
     }
@@ -81,6 +83,7 @@ constructor(
                 hasAuthHeader = request.header("Authorization") != null,
                 responseCode = 0,
                 isAuthFailureBody = false,
+                isAuthPath = AuthRules.isAuthPath(request.url.encodedPath),
             )
         val authenticated =
             if (decision.attachToken && token != null) {
@@ -103,6 +106,7 @@ constructor(
                 hasAuthHeader = request.header("Authorization") != null,
                 responseCode = response.code,
                 isAuthFailureBody = isAuthFailureResponse(response),
+                isAuthPath = AuthRules.isAuthPath(response.request.url.encodedPath),
             ).clearSession
         if (clearSession && token == sessionStore.getAuthData()) {
             sessionStore.clear()
