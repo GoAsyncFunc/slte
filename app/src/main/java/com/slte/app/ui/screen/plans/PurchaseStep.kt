@@ -2,6 +2,20 @@ package com.slte.app.ui.screen.plans
 
 import com.slte.app.domain.model.PaymentMethod
 import com.slte.app.domain.model.PlanInfo
+import com.slte.app.domain.usecase.purchase.CheckoutOutcome
+import com.slte.app.domain.usecase.purchase.CouponCheck
+import com.slte.app.domain.usecase.purchase.CouponChecker
+import com.slte.app.domain.usecase.purchase.OrderCreateOutcome
+import com.slte.app.domain.usecase.purchase.OrderCreator
+import com.slte.app.domain.usecase.purchase.OrderPaymentLoad
+import com.slte.app.domain.usecase.purchase.OrderPaymentLoader
+import com.slte.app.domain.usecase.purchase.OrderPaymentPoller
+import com.slte.app.domain.usecase.purchase.PaymentCheckout
+import com.slte.app.domain.usecase.purchase.PollOutcome
+import com.slte.app.domain.usecase.purchase.computeCouponDiscount
+import com.slte.app.domain.usecase.purchase.decideCheckoutStep
+import com.slte.app.domain.usecase.purchase.finalPriceCents
+import com.slte.app.domain.usecase.purchase.pollOutcome
 
 sealed interface PurchaseStep {
 

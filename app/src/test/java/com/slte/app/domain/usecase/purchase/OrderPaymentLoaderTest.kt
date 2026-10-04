@@ -1,4 +1,4 @@
-package com.slte.app.ui.screen.plans
+package com.slte.app.domain.usecase.purchase
 
 import com.slte.app.data.remote.api.dto.OrderInfoDto
 import com.slte.app.data.remote.api.dto.PaymentMethodDto

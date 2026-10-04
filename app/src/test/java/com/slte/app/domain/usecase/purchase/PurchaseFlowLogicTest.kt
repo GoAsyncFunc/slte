@@ -1,9 +1,10 @@
-package com.slte.app.ui.screen.plans
+package com.slte.app.domain.usecase.purchase
 
 import com.slte.app.domain.model.CheckoutResult
 import com.slte.app.domain.model.OrderStatus
 import com.slte.app.domain.model.PlanInfo
 import com.slte.app.domain.model.isOrderActivated
+import com.slte.app.ui.screen.plans.PurchaseStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

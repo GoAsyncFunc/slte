@@ -134,8 +134,3 @@ object Dimens {
     val noticeTagPaddingH = 8.dp
     val noticeTagSpacing = 6.dp
 }
-
-object VerificationCodeConfig {
-    const val countdownSeconds = 60
-    const val countdownIntervalMs = 1000L
-}

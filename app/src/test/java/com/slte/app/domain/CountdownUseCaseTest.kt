@@ -1,7 +1,7 @@
 package com.slte.app.domain
 
 import com.slte.app.domain.usecase.CountdownUseCase
-import com.slte.app.utils.VerificationCodeConfig
+import com.slte.app.domain.usecase.VerificationCodeConfig
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
