@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -76,6 +78,17 @@ constructor(
 
     private val etagByUrl = ConcurrentHashMap<String, String>()
 
+    private val refreshMutex = Mutex()
+
+    init {
+        // ETag 只存内存会随进程重启丢失，持久化的 etag 从此回灌，重启后仍能走 304
+        store.load()?.let { cached ->
+            val url = cached.sourceUrl
+            val etag = cached.etag
+            if (!url.isNullOrBlank() && !etag.isBlank()) etagByUrl[url] = etag
+        }
+    }
+
     private val configClient: OkHttpClient =
         OkHttpClient
             .Builder()
@@ -98,7 +111,13 @@ constructor(
         scope.launch { prober.loop(PROBE_LOOP_INTERVAL_MS) }
     }
 
-    suspend fun refresh(force: Boolean = false): Boolean {
+    suspend fun refresh(force: Boolean = false): Boolean =
+        // 启动首拉与手动强刷可能并发，竞速/探测/选主全程互斥，避免乱序写盘与探测流量翻倍
+        refreshMutex.withLock {
+            refreshLocked(force)
+        }
+
+    private suspend fun refreshLocked(force: Boolean): Boolean {
         val now = System.currentTimeMillis()
         val cached = store.load()
         if (!force && cached != null && ConfigValidation.isCacheFresh(cached.fetchedAt, now, CONFIG_CACHE_TTL_MS)) {
