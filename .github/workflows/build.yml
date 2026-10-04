@@ -196,3 +196,30 @@ jobs:
           path: app/build/outputs/apk/*/SLTE-*.apk
           if-no-files-found: warn
           retention-days: 90
+
+  quality:
+    # 质量门禁与打包解耦：单测/ktlint 失败会让整个 workflow 变红，
+    # 但不阻断 build job 的 APK 产出（Fork 用户改文案/域名/图标后仍能拿到安装包）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 Android SDK
+        run: |
+          set -e
+          SDKMANAGER="$(command -v sdkmanager || echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager")"
+          test -x "$SDKMANAGER" || { echo "::error::找不到 sdkmanager（ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT）"; exit 1; }
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: 单元测试 + ktlint
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:ktlintDebugSourceSetCheck :app:ktlintTestDebugSourceSetCheck
