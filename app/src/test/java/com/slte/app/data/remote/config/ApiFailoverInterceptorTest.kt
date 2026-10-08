@@ -2,7 +2,12 @@ package com.slte.app.data.remote.config
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -10,6 +15,9 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -178,5 +186,49 @@ class ApiFailoverInterceptorTest {
             .execute()
             .use { assertEquals(500, it.code) }
         assertEquals(1, server1.requestCount)
+    }
+
+    @Test
+    fun `只有候选自身超时才算候选故障`() {
+        assertFalse(
+            "读超时是候选自己的问题，要记故障",
+            ApiFailoverInterceptor.isSharedBudgetTimeout(SocketTimeoutException("read timed out")),
+        )
+        assertTrue(
+            "call 总超时与候选无关，不能记故障",
+            ApiFailoverInterceptor.isSharedBudgetTimeout(InterruptedIOException("timeout")),
+        )
+        assertFalse(
+            "普通 IO 异常按候选故障处理",
+            ApiFailoverInterceptor.isSharedBudgetTimeout(IOException("connection reset")),
+        )
+    }
+
+    @Test
+    fun `call 预算耗尽时不记候选故障也不再切换`() {
+        val chain = mockk<Interceptor.Chain>(relaxed = true)
+        every { chain.request() } returns Request.Builder().url("${primary}api/v1/user/info").build()
+        every { chain.proceed(any()) } throws InterruptedIOException("timeout")
+
+        assertThrows(IOException::class.java) { ApiFailoverInterceptor(failoverConfig(), selector).intercept(chain) }
+
+        assertEquals(
+            "call 预算耗尽不能记到候选头上，否则健康地址会被逐个误判成故障而全部熔断",
+            0,
+            selector.snapshot().sumOf { it.consecutiveFailures },
+        )
+        verify(exactly = 1) { chain.proceed(any()) }
+    }
+
+    @Test
+    fun `候选自身读超时要记故障并切换下一个`() {
+        val chain = mockk<Interceptor.Chain>(relaxed = true)
+        every { chain.request() } returns Request.Builder().url("${primary}api/v1/user/info").build()
+        every { chain.proceed(any()) } throws SocketTimeoutException("read timed out")
+
+        assertThrows(IOException::class.java) { ApiFailoverInterceptor(failoverConfig(), selector).intercept(chain) }
+
+        assertEquals("两个候选各自超时，各记一次失败", 2, selector.snapshot().sumOf { it.consecutiveFailures })
+        verify(exactly = 2) { chain.proceed(any()) }
     }
 }

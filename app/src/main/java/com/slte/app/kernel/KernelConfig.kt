@@ -1,10 +1,6 @@
 package com.slte.app.kernel
 
 import android.content.Context
-import android.content.Intent
-import com.github.kr328.clash.common.constants.Intents
-import com.github.kr328.clash.service.model.Profile
-import com.github.kr328.clash.service.util.sendBroadcastSelf
 import com.slte.app.BuildConfig
 import com.slte.app.utils.AppLog
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,7 +29,7 @@ class KernelConfig
 @Inject
 constructor(
     private val faultReporter: KernelFaultReporter,
-    private val manager: KernelManager,
+    private val manager: KernelBridge,
     private val subscribeSource: SubscribeSource,
     private val remoteConfig: AppRemoteConfig,
     @ApplicationContext private val context: Context,
@@ -55,7 +51,7 @@ constructor(
 
     private suspend fun ensureProfileLocked(): UUID? = safe(null, "ensureProfileLocked") {
         cleanupStalePending()
-        val profiles = manager.profile() ?: return@safe null
+        val profiles = manager.awaitProfile() ?: return@safe null
         val subscribeUrl = subscribeUrl() ?: return@safe null
         val expectedName = profileName()
 
@@ -67,7 +63,7 @@ constructor(
             .filter { it.source == subscribeUrl && it.name != expectedName }
             .forEach { profiles.delete(it.uuid) }
 
-        val uuid = current?.uuid ?: profiles.create(Profile.Type.Url, expectedName, subscribeUrl)
+        val uuid = current?.uuid ?: profiles.create(KernelProfileType.URL, expectedName, subscribeUrl)
 
         if (current == null || !current.imported) {
             if (!downloadSubscribeToPending(uuid)) return@safe null
@@ -79,14 +75,11 @@ constructor(
         val profile = profiles.queryByUUID(uuid) ?: return@safe null
         val activeChanged = profiles.queryActive()?.uuid != uuid
         if (activeChanged) {
-            profiles.setActive(profile)
+            profiles.setActive(uuid)
         }
 
         if (activeChanged || injectDirectRule(uuid)) {
-            context.sendBroadcastSelf(
-                Intent(Intents.ACTION_PROFILE_CHANGED)
-                    .putExtra(Intents.EXTRA_UUID, uuid.toString()),
-            )
+            manager.notifyProfileChanged(uuid)
         }
         uuid
     }
@@ -121,7 +114,7 @@ constructor(
 
     suspend fun updateProfile(): ProfileUpdateResult = safe(ProfileUpdateResult.FAILED, "updateProfile") {
         profileMutex.withLock {
-            val profiles = manager.profile() ?: return@withLock ProfileUpdateResult.FAILED
+            val profiles = manager.awaitProfile() ?: return@withLock ProfileUpdateResult.FAILED
             val subscribeUrl = subscribeUrl() ?: return@withLock ProfileUpdateResult.FAILED
             val expectedName = profileName()
             val profile =
@@ -153,10 +146,7 @@ constructor(
             }
             file.parentFile?.mkdirs()
             atomicWrite(file, cleaned)
-            context.sendBroadcastSelf(
-                Intent(Intents.ACTION_PROFILE_CHANGED)
-                    .putExtra(Intents.EXTRA_UUID, profile.uuid.toString()),
-            )
+            manager.notifyProfileChanged(profile.uuid)
             subscribeSource.saveSubscriptionUpdatedAt()
             ProfileUpdateResult.UPDATED
         }
@@ -212,19 +202,13 @@ constructor(
     private fun profileName(): String = profileNameFor(subscribeSource.getEmail())
 
     suspend fun deleteAccountProfiles(email: String?): Boolean = safe(false, "deleteAccountProfiles") {
-        val profiles = manager.profile() ?: return@safe false
-        val expectedName = email?.let { profileNameFor(it) }
-        val url = subscribeUrl()
+        val normalizedEmail = email?.trim()?.takeIf { it.isNotEmpty() } ?: return@safe false
+        val profiles = manager.awaitProfile() ?: return@safe false
+        val expectedName = profileNameFor(normalizedEmail)
         profiles
             .queryAll()
-            .filter { profile ->
-                profile.name == expectedName ||
-                    (
-                        expectedName == null &&
-                            url != null &&
-                            (profile.source == url || profile.source.startsWith(url))
-                        )
-            }.forEach { profiles.delete(it.uuid) }
+            .filter { it.name == expectedName }
+            .forEach { profiles.delete(it.uuid) }
         true
     }
 

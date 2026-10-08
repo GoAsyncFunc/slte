@@ -6,22 +6,21 @@ import com.github.kr328.clash.service.data.ImportedDao
 import com.github.kr328.clash.service.data.Pending
 import com.github.kr328.clash.service.data.PendingDao
 import com.github.kr328.clash.service.model.Profile
-import com.github.kr328.clash.service.remote.IFetchObserver
 import com.github.kr328.clash.service.remote.IProfileManager
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.directoryLastModified
 import com.github.kr328.clash.service.util.generateProfileUUID
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.pendingDir
-import com.github.kr328.clash.service.util.sendProfileChanged
+import java.io.FileNotFoundException
+import java.util.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.FileNotFoundException
-import java.util.*
 
-class ProfileManager(private val context: Context) : IProfileManager,
+class ProfileManager(private val context: Context) :
+    IProfileManager,
     CoroutineScope by CoroutineScope(Dispatchers.IO) {
     private val store = ServiceStore(context)
 
@@ -60,96 +59,17 @@ class ProfileManager(private val context: Context) : IProfileManager,
         return uuid
     }
 
-    override suspend fun clone(uuid: UUID): UUID {
-        val newUUID = generateProfileUUID()
-
-        val imported = ImportedDao().queryByUUID(uuid)
-            ?: throw FileNotFoundException("profile $uuid not found")
-
-        val pending = Pending(
-            uuid = newUUID,
-            name = imported.name,
-            type = Profile.Type.File,
-            source = imported.source,
-            interval = imported.interval,
-            upload = imported.upload,
-            total = imported.total,
-            download = imported.download,
-            expire = imported.expire,
-            ageSecretKey = imported.ageSecretKey
-        )
-
-        cloneImportedFiles(uuid, newUUID)
-
-        PendingDao().insert(pending)
-
-        return newUUID
-    }
-
-    override suspend fun patch(uuid: UUID, name: String, source: String, interval: Long, ageSecretKey: String?) {
-        val pending = PendingDao().queryByUUID(uuid)
-
-        if (pending == null) {
-            val imported = ImportedDao().queryByUUID(uuid)
-                ?: throw FileNotFoundException("profile $uuid not found")
-
-            cloneImportedFiles(uuid)
-
-            PendingDao().insert(
-                Pending(
-                    uuid = imported.uuid,
-                    name = name,
-                    type = imported.type,
-                    source = source,
-                    interval = interval,
-                    upload = 0,
-                    total = 0,
-                    download = 0,
-                    expire = 0,
-                    ageSecretKey = ageSecretKey,
-                )
-            )
-        } else {
-            val newPending = pending.copy(
-                name = name,
-                source = source,
-                interval = interval,
-                upload = 0,
-                total = 0,
-                download = 0,
-                expire = 0,
-                ageSecretKey = ageSecretKey,
-            )
-
-            PendingDao().update(newPending)
-        }
-    }
-
-    override suspend fun update(uuid: UUID) {
-        // 订阅更新统一由 App 端 KernelConfig.updateProfile 负责（内核原生抓取无脱敏）
-    }
-
-    override suspend fun commit(uuid: UUID, callback: IFetchObserver?) {
-        ProfileProcessor.apply(context, uuid, callback)
+    override suspend fun commit(uuid: UUID) {
+        ProfileProcessor.apply(context, uuid)
 
         // 内核侧定时抓取会绕过 app 脱敏并热重载原始订阅，订阅更新由 App 端统一负责
     }
 
-    override suspend fun release(uuid: UUID) {
-        ProfileProcessor.release(context, uuid)
-    }
-
     override suspend fun delete(uuid: UUID) {
-        ImportedDao().queryByUUID(uuid)?.also {
-            ProfileReceiver.cancelNext(context, it.uuid)
-        }
-
         ProfileProcessor.delete(context, uuid)
     }
 
-    override suspend fun queryByUUID(uuid: UUID): Profile? {
-        return resolveProfile(uuid)
-    }
+    override suspend fun queryByUUID(uuid: UUID): Profile? = resolveProfile(uuid)
 
     override suspend fun queryAll(): List<Profile> {
         val uuids = withContext(Dispatchers.IO) {
@@ -205,18 +125,17 @@ class ProfileManager(private val context: Context) : IProfileManager,
         )
     }
 
-    private fun resolveUpdatedAt(uuid: UUID): Long {
-        return context.pendingDir.resolve(uuid.toString()).directoryLastModified
-            ?: context.importedDir.resolve(uuid.toString()).directoryLastModified
-            ?: -1
-    }
+    private fun resolveUpdatedAt(uuid: UUID): Long = context.pendingDir.resolve(uuid.toString()).directoryLastModified
+        ?: context.importedDir.resolve(uuid.toString()).directoryLastModified
+        ?: -1
 
     private fun cloneImportedFiles(source: UUID, target: UUID = source) {
         val s = context.importedDir.resolve(source.toString())
         val t = context.pendingDir.resolve(target.toString())
 
-        if (!s.exists())
+        if (!s.exists()) {
             throw FileNotFoundException("profile $source not found")
+        }
 
         t.deleteRecursively()
 

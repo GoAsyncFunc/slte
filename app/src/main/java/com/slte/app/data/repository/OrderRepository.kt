@@ -8,36 +8,37 @@ import com.slte.app.domain.model.CreateOrderResult
 import com.slte.app.domain.model.OrderInfo
 import com.slte.app.domain.model.PaymentMethod
 import com.slte.app.domain.model.PlanInfo
+import com.slte.app.domain.repository.OrderRepository as OrderRepositoryContract
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class OrderRepository
+class OrderRepositoryImpl
 @Inject
 constructor(
     private val authApi: AuthApi,
-) {
-    suspend fun fetchPlans(): Result<List<PlanInfo>> = runApi {
+) : OrderRepositoryContract {
+    override suspend fun fetchPlans(): Result<List<PlanInfo>> = runApi {
         authApi.fetchPlans().map { it.toDomainPlanInfo() }
     }
 
-    suspend fun createOrder(
+    override suspend fun createOrder(
         planId: Int,
         period: String,
-        couponCode: String? = null,
+        couponCode: String?,
     ): Result<CreateOrderResult> = runApi {
         authApi.createOrder(planId, period, couponCode).let {
             CreateOrderResult(tradeNo = it.tradeNo)
         }
     }
 
-    suspend fun getOrderDetail(tradeNo: String): Result<OrderInfo> = runApi {
+    override suspend fun getOrderDetail(tradeNo: String): Result<OrderInfo> = runApi {
         authApi.getOrderDetail(tradeNo).toDomain()
     }
 
-    suspend fun checkCoupon(
+    override suspend fun checkCoupon(
         code: String,
         planId: Int?,
     ): Result<CouponCheckResult> = runApi {
@@ -46,7 +47,7 @@ constructor(
         }
     }
 
-    suspend fun checkoutOrder(
+    override suspend fun checkoutOrder(
         tradeNo: String,
         paymentMethod: Int,
     ): Result<CheckoutResult> = runApi {
@@ -60,17 +61,17 @@ constructor(
         }
     }
 
-    suspend fun getPaymentMethods(): Result<List<PaymentMethod>> = runApi {
+    override suspend fun getPaymentMethods(): Result<List<PaymentMethod>> = runApi {
         authApi.getPaymentMethods().map {
             PaymentMethod(id = it.id, name = it.name, payment = it.payment, icon = it.icon)
         }
     }
 
-    suspend fun cancelOrder(tradeNo: String): Result<Unit> = runApi {
+    override suspend fun cancelOrder(tradeNo: String): Result<Unit> = runApi {
         authApi.cancelOrder(tradeNo)
     }
 
-    suspend fun fetchOrders(): Result<List<OrderInfo>> = runApi {
+    override suspend fun fetchOrders(): Result<List<OrderInfo>> = runApi {
         authApi.fetchOrders().map { it.toDomain() }
     }.onFailure {
         AppLog.w("SLTE-Repo", "fetchOrders failed: ${sanitizeLog(it.message ?: "Unknown")}")

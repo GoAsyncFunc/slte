@@ -1,16 +1,14 @@
 package com.slte.app.kernel
 
-import com.github.kr328.clash.core.model.ProxySort
-import com.github.kr328.clash.core.model.TunnelState
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.Constants
 import kotlinx.coroutines.delay
 
 suspend fun KernelProxy.selectNode(name: String): Boolean = safe(false, "selectNode") {
-    val clash = manager.clash() ?: return@safe false
+    val clash = manager.awaitClash() ?: return@safe false
     val group = selectorGroup() ?: return@safe false
 
-    val members = clash.queryProxyGroup(group, ProxySort.Default).proxies.filterNot { it.isGroup }
+    val members = clash.queryProxyGroup(group, KernelProxySort.DEFAULT).proxies.filterNot { it.isGroup }
     val resolved = NodeNameResolver.resolve(members.map { it.name }, name)
     if (resolved == null) {
         AppLog.w(
@@ -22,11 +20,11 @@ suspend fun KernelProxy.selectNode(name: String): Boolean = safe(false, "selectN
     }
 
     val result = clash.patchSelector(group, resolved)
-    var now = clash.queryProxyGroup(group, ProxySort.Default).now
+    var now = clash.queryProxyGroup(group, KernelProxySort.DEFAULT).now
     var attempt = 0
     while (now != resolved && attempt < VERIFY_ATTEMPTS) {
         delay(VERIFY_DELAY_MS)
-        now = clash.queryProxyGroup(group, ProxySort.Default).now
+        now = clash.queryProxyGroup(group, KernelProxySort.DEFAULT).now
         attempt++
     }
     AppLog.d("SLTE-Kernel", "selectNode: group=$group proxy=$resolved result=$result now=$now")
@@ -47,12 +45,12 @@ private const val VERIFY_ATTEMPTS = 2
 private const val VERIFY_DELAY_MS = 120L
 
 suspend fun KernelProxy.nodeNames(): List<String> = safe(emptyList(), "nodeNames") {
-    val clash = manager.clash() ?: return@safe emptyList()
+    val clash = manager.awaitClash() ?: return@safe emptyList()
     clash
         .queryProxyGroupNames(excludeNotSelectable = false)
         .asSequence()
         .filterNot { it == "GLOBAL" }
-        .flatMap { group -> clash.queryProxyGroup(group, ProxySort.Default).proxies.asSequence() }
+        .flatMap { group -> clash.queryProxyGroup(group, KernelProxySort.DEFAULT).proxies.asSequence() }
         .filterNot { it.isGroup || it.name == "DIRECT" || it.name == "REJECT" }
         .map { it.name }
         .distinct()
@@ -74,9 +72,9 @@ suspend fun KernelProxy.selectFallback(): Boolean = safe(false, "selectFallback"
 }
 
 suspend fun KernelProxy.serverInfo(): KernelServerInfo? = safe(null, "serverInfo") {
-    val clash = manager.clash() ?: return@safe null
+    val clash = manager.awaitClash() ?: return@safe null
     val selector = selectorGroup() ?: return@safe null
-    val state = clash.queryProxyGroup(selector, ProxySort.Default)
+    val state = clash.queryProxyGroup(selector, KernelProxySort.DEFAULT)
     val now = state.now
     AppLog.d("SLTE-Kernel", "serverInfo: selector=$selector now=$now type=${state.type}")
     if (now.isBlank()) return@safe KernelServerInfo(null, null)
@@ -94,45 +92,31 @@ suspend fun KernelProxy.serverInfo(): KernelServerInfo? = safe(null, "serverInfo
         if (state.proxies.any { !it.isGroup && it.name == now }) {
             now
         } else {
-            clash.queryProxyGroup(now, ProxySort.Default).now.ifBlank { null }
+            clash.queryProxyGroup(now, KernelProxySort.DEFAULT).now.ifBlank { null }
         }
     AppLog.d("SLTE-Kernel", "serverInfo: selection=$selection node=$node")
     KernelServerInfo(selection, node)
 }
 
 suspend fun KernelProxy.groupByTypeCurrentNode(type: String): String? = safe(null, "groupByTypeCurrentNode") {
-    val clash = manager.clash() ?: return@safe null
+    val clash = manager.awaitClash() ?: return@safe null
     val group = queryGroupByTypeName(type) ?: return@safe null
-    clash.queryProxyGroup(group, ProxySort.Default).now.ifBlank { null }
-}
-
-suspend fun KernelProxy.groupByTypeDelay(type: String): Int? = safe(null, "groupByTypeDelay") {
-    val clash = manager.clash() ?: return@safe null
-    val group = queryGroupByTypeName(type) ?: return@safe null
-
-    clash.healthCheck(group)
-    val state = clash.queryProxyGroup(group, ProxySort.Delay)
-    val proxy =
-        state.proxies.firstOrNull { it.name == state.now }
-            ?: state.proxies.firstOrNull { !it.isGroup }
-            ?: return@safe null
-
-    normalizeDelay(proxy.delay)
+    clash.queryProxyGroup(group, KernelProxySort.DEFAULT).now.ifBlank { null }
 }
 
 internal suspend fun KernelProxy.queryGroupByTypeName(type: String): String? {
-    val clash = manager.clash() ?: return null
+    val clash = manager.awaitClash() ?: return null
     for (name in clash.queryProxyGroupNames(excludeNotSelectable = false)) {
-        val group = clash.queryProxyGroup(name, ProxySort.Default)
+        val group = clash.queryProxyGroup(name, KernelProxySort.DEFAULT)
         if (group.type.equals(type, ignoreCase = true)) return name
     }
     return null
 }
 
 suspend fun KernelProxy.ensureGlobalSelection() = safe(Unit, "ensureGlobalSelection") {
-    val clash = manager.clash() ?: return@safe
-    if (clash.queryTunnelState().mode != TunnelState.Mode.Global) return@safe
-    val now = clash.queryProxyGroup("GLOBAL", ProxySort.Default).now
+    val clash = manager.awaitClash() ?: return@safe
+    if (clash.queryTunnelMode() != KernelTunnelMode.GLOBAL) return@safe
+    val now = clash.queryProxyGroup("GLOBAL", KernelProxySort.DEFAULT).now
     AppLog.d("SLTE-Kernel", "ensureGlobalSelection: GLOBAL now=$now")
     if (now.isBlank() || now == "DIRECT" || now == "REJECT") {
         val target = autoGroupName() ?: return@safe
@@ -153,12 +137,12 @@ internal suspend fun KernelProxy.waitForGroups(): String? {
 internal fun KernelProxy.normalizeDelay(delay: Int): Int = if (delay <= 0 || delay >= Constants.DELAY_INVALID_MAX) Constants.DELAY_TIMEOUT else delay
 
 internal suspend fun KernelProxy.selectorGroup(): String? {
-    val clash = manager.clash() ?: return null
+    val clash = manager.awaitClash() ?: return null
     val groups = clash.queryProxyGroupNames(excludeNotSelectable = false)
     groups.forEach { group ->
 
         if (group == "GLOBAL") return@forEach
-        val type = clash.queryProxyGroup(group, ProxySort.Default).type
+        val type = clash.queryProxyGroup(group, KernelProxySort.DEFAULT).type
         AppLog.d("SLTE-Kernel", "selectorGroup: $group type=$type")
         if (type.equals("Selector", ignoreCase = true) || type.equals("URLTest", ignoreCase = true)) {
             return group
@@ -171,7 +155,7 @@ internal suspend fun KernelProxy.selectSpecialGroup(
     type: String,
     vararg nameKeywords: String,
 ): Boolean {
-    val clash = manager.clash() ?: return false
+    val clash = manager.awaitClash() ?: return false
     val selector = selectorGroup() ?: return false
     val target = queryGroupByTypeName(type) ?: nameMatch(*nameKeywords) ?: return false
 
@@ -181,8 +165,8 @@ internal suspend fun KernelProxy.selectSpecialGroup(
 }
 
 internal suspend fun KernelProxy.patchGlobalIfGlobal(target: String) {
-    val clash = manager.clash() ?: return
-    if (clash.queryTunnelState().mode != TunnelState.Mode.Global) return
+    val clash = manager.awaitClash() ?: return
+    if (clash.queryTunnelMode() != KernelTunnelMode.GLOBAL) return
     val result = clash.patchSelector("GLOBAL", target)
     AppLog.d("SLTE-Kernel", "patchGlobalIfGlobal: GLOBAL -> $target result=$result")
 }
@@ -192,7 +176,7 @@ internal suspend fun KernelProxy.autoGroupName(): String? = queryGroupByTypeName
 internal suspend fun KernelProxy.fallbackGroupName(): String? = queryGroupByTypeName("Fallback") ?: nameMatch("故障", "fallback")
 
 internal suspend fun KernelProxy.nameMatch(vararg keywords: String): String? {
-    val clash = manager.clash() ?: return null
+    val clash = manager.awaitClash() ?: return null
     return clash
         .queryProxyGroupNames(excludeNotSelectable = false)
         .firstOrNull { group -> keywords.any { group.contains(it, ignoreCase = true) } }

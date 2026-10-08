@@ -2,7 +2,7 @@ package com.slte.app.domain.usecase.purchase
 
 import com.slte.app.data.remote.ApiException
 import com.slte.app.data.remote.api.dto.CouponCheckResultDto
-import com.slte.app.data.repository.OrderRepository
+import com.slte.app.data.repository.OrderRepositoryImpl
 import com.slte.app.support.FakeAuthApi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -10,7 +10,7 @@ import org.junit.Test
 
 class CouponCheckerTest {
     private val api = FakeAuthApi()
-    private val checker = CouponChecker(OrderRepository(api))
+    private val checker = CouponChecker(OrderRepositoryImpl(api))
 
     @Test
     fun `百分比折扣按下单金额计算`() {

@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import com.slte.app.R
 import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteColors
@@ -116,7 +117,7 @@ fun SlteSwitch(
             Box(
                 modifier =
                 Modifier
-                    .offset(x = thumbOffset)
+                    .offset { IntOffset(x = thumbOffset.roundToPx(), y = 0) }
                     .size(Dimens.switchThumbSize)
                     .align(Alignment.CenterStart)
                     .graphicsLayer {

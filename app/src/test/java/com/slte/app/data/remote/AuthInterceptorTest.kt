@@ -5,7 +5,7 @@ import com.slte.app.support.MainDispatcherRule
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -99,43 +99,43 @@ class AuthInterceptorTest {
     }
 
     @Test
-    fun `认证接口401且token未变时清会话并发出事件`() = runTest(mainRule.dispatcher) {
+    fun `认证接口401在收集器启动前发生时仍可收到失效token`() = runTest(mainRule.dispatcher) {
         every { sessionStore.getAuthData() } returns "token-a"
         val chain = chain(request(), code = 401)
-        val events = AtomicInteger()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            interceptor.authErrorEvents.collect { events.incrementAndGet() }
-        }
 
         interceptor.intercept(chain)
 
-        verify { sessionStore.clear() }
-        assertEquals(1, events.get())
+        verify(exactly = 0) { sessionStore.clear() }
+        val expiredToken = AtomicReference<String?>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            interceptor.authErrorEvents.collect { expiredToken.set(it) }
+        }
+        assertEquals("token-a", expiredToken.get())
     }
 
     @Test
     fun `401时token已被更换则不清会话`() = runTest(mainRule.dispatcher) {
         every { sessionStore.getAuthData() } returnsMany listOf("token-a", "token-b")
         val chain = chain(request(), code = 401)
-        val events = AtomicInteger()
+        val expiredToken = AtomicReference<String?>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            interceptor.authErrorEvents.collect { events.incrementAndGet() }
+            interceptor.authErrorEvents.collect { expiredToken.set(it) }
         }
 
         interceptor.intercept(chain)
 
         verify(exactly = 0) { sessionStore.clear() }
-        assertEquals(0, events.get())
+        assertEquals(null, expiredToken.get())
     }
 
     @Test
-    fun `认证接口403且响应体为失效关键词时清会话`() {
+    fun `认证接口403且响应体为失效关键词时不直接清会话`() {
         every { sessionStore.getAuthData() } returns "token-a"
         val chain = chain(request(), code = 403, body = """{"msg":"登录已过期"}""")
 
         interceptor.intercept(chain)
 
-        verify { sessionStore.clear() }
+        verify(exactly = 0) { sessionStore.clear() }
     }
 
     @Test
@@ -161,13 +161,13 @@ class AuthInterceptorTest {
     }
 
     @Test
-    fun `非白名单主机的401也会清会话`() {
+    fun `非白名单主机的401不触发会话失效`() {
         every { sessionStore.getAuthData() } returns "token-a"
         val chain = chain(request(url = "https://third-party.example.org/api/v1/user/info"), code = 401)
 
         interceptor.intercept(chain)
 
-        verify { sessionStore.clear() }
+        verify(exactly = 0) { sessionStore.clear() }
     }
 
     @Test

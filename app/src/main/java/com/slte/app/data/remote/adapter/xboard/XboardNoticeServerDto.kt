@@ -1,35 +1,17 @@
 package com.slte.app.data.remote.adapter.xboard
 
-import com.slte.app.domain.model.Notice
 import com.slte.app.domain.model.ServerNode
 import com.slte.app.domain.model.ServerType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-@Serializable
-data class XboardNoticeData(
-    val id: Int = 0,
-    val title: String = "",
-    val content: String = "",
-    val tags: List<String>? = null,
-    val show: Boolean = true,
-    @SerialName("img_url")
-    val imgUrl: String? = null,
-    @SerialName("created_at")
-    val createdAt: Long = 0,
-    @SerialName("updated_at")
-    val updatedAt: Long = 0,
-)
-
-fun XboardNoticeData.toDomain() = Notice(
-    id = id,
-    title = title,
-    body = content,
-    tags = tags ?: emptyList(),
-    createdAt = createdAt,
-)
-
+/**
+ * Xboard 的节点列表。
+ *
+ * 两个面板的 `user/server/fetch` 字段结构不同（Xboard 是 NodeResource：只有元信息，
+ * v2board 是原始协议行），这一块不共享。
+ */
 @Serializable
 data class XboardServerData(
     val id: Int = 0,

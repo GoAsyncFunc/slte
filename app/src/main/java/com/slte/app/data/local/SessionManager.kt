@@ -1,13 +1,14 @@
 package com.slte.app.data.local
 
-import com.slte.app.data.local.SessionStore
 import com.slte.app.data.remote.AuthInterceptor
 import com.slte.app.data.remote.FallbackDns
 import com.slte.app.data.remote.config.CrispManager
+import com.slte.app.domain.model.SessionNotice
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.SessionRepository
+import com.slte.app.kernel.KernelBridge
 import com.slte.app.kernel.KernelConfig
-import com.slte.app.kernel.KernelManager
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -28,18 +29,18 @@ constructor(
     private val sessionStore: SessionStore,
     private val authInterceptor: AuthInterceptor,
     private val crispManager: CrispManager,
-    private val kernelManager: KernelManager,
+    private val kernelManager: KernelBridge,
     private val kernelConfig: KernelConfig,
     private val fallbackDns: FallbackDns,
-) {
+) : SessionRepository {
     private val _sessionState = MutableStateFlow<SessionState>(SessionState.Loading)
-    val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
+    override val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
 
     private val _logoutEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val logoutEvents: SharedFlow<Unit> = _logoutEvents.asSharedFlow()
+    override val logoutEvents: SharedFlow<Unit> = _logoutEvents.asSharedFlow()
 
-    private val _sessionExpiredEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val sessionExpiredEvents: SharedFlow<Unit> = _sessionExpiredEvents.asSharedFlow()
+    private val _sessionNotices = MutableSharedFlow<SessionNotice>(extraBufferCapacity = 1)
+    override val sessionNotices: SharedFlow<SessionNotice> = _sessionNotices.asSharedFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -76,25 +77,30 @@ constructor(
 
     private fun observeAuthErrors() {
         scope.launch {
-            authInterceptor.authErrorEvents.collect {
-                clearSession(expired = true)
+            authInterceptor.authErrorEvents.collect { expiredAuthData ->
+                if (sessionStore.getAuthData() == expiredAuthData) {
+                    clearSession(expired = true)
+                }
             }
         }
     }
 
-    fun setLoggedIn(user: User) {
+    override fun setLoggedIn(user: User) {
         _sessionState.value = SessionState.LoggedIn(user)
         sessionStore.save(user.authData, user.email, user.subscribeToken)
         sessionStore.saveUserInfo(user)
     }
 
-    fun updateUser(user: User) {
+    override fun updateUser(user: User) {
         if (_sessionState.value is SessionState.LoggedIn) {
             _sessionState.value = SessionState.LoggedIn(user)
         }
     }
 
-    fun clearSession(expired: Boolean = false) {
+    override fun clearSession(
+        expired: Boolean,
+        notice: SessionNotice?,
+    ) {
         val email = sessionStore.getEmail()
         scope.launch {
             kernelConfig.deleteAccountProfiles(email)
@@ -105,6 +111,7 @@ constructor(
         sessionStore.clear()
         crispManager.clearUser()
         _logoutEvents.tryEmit(Unit)
-        if (expired) _sessionExpiredEvents.tryEmit(Unit)
+        val sessionNotice = notice ?: if (expired) SessionNotice.EXPIRED else null
+        sessionNotice?.let(_sessionNotices::tryEmit)
     }
 }

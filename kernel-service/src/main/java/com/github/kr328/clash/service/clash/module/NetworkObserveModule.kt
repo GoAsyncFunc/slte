@@ -7,12 +7,12 @@ import androidx.core.content.getSystemService
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.service.util.asSocketAddressText
+import java.net.InetAddress
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
-import java.net.InetAddress
-import java.util.concurrent.ConcurrentHashMap
 
 class NetworkObserveModule(service: Service) : Module<Network>(service) {
     private val connectivity = service.getSystemService<ConnectivityManager>()!!
@@ -28,7 +28,7 @@ class NetworkObserveModule(service: Service) : Module<Network>(service) {
 
     private data class NetworkInfo(
         @Volatile var losingMs: Long = 0,
-        @Volatile var dnsList: List<InetAddress> = emptyList()
+        @Volatile var dnsList: List<InetAddress> = emptyList(),
     ) {
         fun isAvailable(): Boolean = losingMs < System.currentTimeMillis()
     }
@@ -117,8 +117,10 @@ class NetworkObserveModule(service: Service) : Module<Network>(service) {
     }
 
     private fun notifyDnsChange() {
-        val dnsList = (networkInfos.asSequence().minByOrNull { networkToInt(it) }?.value?.dnsList
-            ?: emptyList()).map { x -> x.asSocketAddressText(53) }
+        val dnsList = (
+            networkInfos.asSequence().minByOrNull { networkToInt(it) }?.value?.dnsList
+                ?: emptyList()
+            ).map { x -> x.asSocketAddressText(53) }
         val prevDnsList = curDnsList
         if (dnsList.isNotEmpty() && prevDnsList != dnsList) {
             Log.i("notifyDnsChange $prevDnsList -> $dnsList")

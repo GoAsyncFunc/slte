@@ -1,9 +1,9 @@
 package com.slte.app.domain.usecase.purchase
 
 import com.slte.app.R
-import com.slte.app.data.remote.ApiException
-import com.slte.app.data.repository.OrderRepository
 import com.slte.app.domain.model.CheckoutResult
+import com.slte.app.domain.model.LocalizedError
+import com.slte.app.domain.repository.OrderRepository
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import javax.inject.Inject
@@ -43,7 +43,7 @@ constructor(
                     AppLog.w(TAG, "checkoutOrder failed: ${sanitizeLog(e.message ?: "Unknown")}")
                     CheckoutOutcome.Retry(
                         tradeNo = tradeNo,
-                        messageRes = (e as? ApiException)?.stringResId ?: R.string.order_pay_failed,
+                        messageRes = (e as? LocalizedError)?.stringResId ?: R.string.order_pay_failed,
                     )
                 },
             )

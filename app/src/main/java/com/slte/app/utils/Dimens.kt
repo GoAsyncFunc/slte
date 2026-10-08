@@ -118,7 +118,6 @@ object Dimens {
     val optionMenuItemPaddingH = gap.lg
     val optionMenuItemCheckSize = 20.dp
     val optionMenuCheckGap = 12.dp
-    val optionMenuBlurRadius = 10.dp
 
     // 分组卡片（HyperOS 风格：一组一张卡片，行间 1.5dp 分隔线，两端内缩 20dp）
     val groupDividerThickness = 1.5.dp

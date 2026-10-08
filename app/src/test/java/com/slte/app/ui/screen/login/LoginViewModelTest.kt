@@ -1,10 +1,10 @@
 package com.slte.app.ui.screen.login
 
 import com.slte.app.R
-import com.slte.app.data.repository.AuthRepository
 import com.slte.app.domain.model.RegisterConfig
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.AuthRepository
 import com.slte.app.support.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.coVerify

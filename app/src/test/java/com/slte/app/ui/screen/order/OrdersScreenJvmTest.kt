@@ -5,7 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.slte.app.data.remote.api.dto.OrderInfoDto
-import com.slte.app.data.repository.OrderRepository
+import com.slte.app.data.repository.OrderRepositoryImpl
 import com.slte.app.support.FakeAuthApi
 import com.slte.app.support.RobolectricTestApplication
 import com.slte.app.ui.ContentPhase
@@ -23,7 +23,7 @@ class OrdersScreenJvmTest {
     val composeRule = createComposeRule()
 
     private val api = FakeAuthApi()
-    private val viewModel = OrdersViewModel(OrderRepository(api))
+    private val viewModel = OrdersViewModel(OrderRepositoryImpl(api))
 
     private fun order(id: Int) = OrderInfoDto(
         id = id,

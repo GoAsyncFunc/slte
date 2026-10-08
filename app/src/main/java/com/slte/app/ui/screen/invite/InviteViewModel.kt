@@ -4,13 +4,14 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.remote.ApiException
-import com.slte.app.data.repository.InviteRepository
 import com.slte.app.domain.model.CommissionRecord
 import com.slte.app.domain.model.InviteCodeInfo
 import com.slte.app.domain.model.InviteInfo
 import com.slte.app.domain.model.InviteStat
+import com.slte.app.domain.model.LocalizedError
+import com.slte.app.domain.repository.InviteRepository
 import com.slte.app.ui.component.SubmitTip
+import com.slte.app.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -44,6 +45,9 @@ data class InviteData(
 
     val isSubmitting: Boolean = false,
     val tip: SubmitTip? = null,
+
+    /** 邀请信息加载失败时的提示；成功/刷新开始时清空。 */
+    val errorMessageRes: Int? = null,
     val sheet: InviteSheet = InviteSheet.None,
     val withdrawMethods: WithdrawMethodsState = WithdrawMethodsState.Loading,
 )
@@ -97,10 +101,18 @@ constructor(
                             codes = info.codes,
                             isRefreshing = false,
                             isEntering = false,
+                            errorMessageRes = null,
                         )
                     }
                 }.onFailure {
-                    _data.update { it.copy(isRefreshing = false, isEntering = false) }
+                    // 不能静默：加载失败必须让用户看到，并能重试
+                    _data.update {
+                        it.copy(
+                            isRefreshing = false,
+                            isEntering = false,
+                            errorMessageRes = ErrorMessages.networkError(),
+                        )
+                    }
                 }
 
             recordsResult.onSuccess { records ->
@@ -147,7 +159,7 @@ constructor(
                     }.onFailure { e ->
 
                         val tip =
-                            if (e is ApiException && e.message?.contains("上限") == true) {
+                            if (e is LocalizedError && e.message?.contains("上限") == true) {
                                 SubmitTip(messageRes = R.string.invite_error_generate_limit)
                             } else {
                                 SubmitTip(messageRes = R.string.invite_error_generate)

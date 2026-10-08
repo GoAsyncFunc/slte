@@ -5,12 +5,11 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.slte.app.data.local.SessionManager
-import com.slte.app.data.repository.AuthRepository
-import com.slte.app.data.repository.GiftCardRepository
-import com.slte.app.data.repository.SubscribeRepository
+import com.slte.app.data.repository.GiftCardRepositoryImpl
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.SubscribeInfo
+import com.slte.app.domain.repository.AuthRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.domain.usecase.DaysUntilExpiryUseCase
 import com.slte.app.support.FakeAuthApi
 import com.slte.app.support.RobolectricTestApplication
@@ -32,16 +31,15 @@ class ProfileScreenJvmTest {
     val composeRule = createComposeRule()
 
     private val subscribeRepository = mockk<SubscribeRepository>(relaxed = true)
-    private val sessionManager = mockk<SessionManager>(relaxed = true)
     private val authRepository = mockk<AuthRepository>(relaxed = true)
     private val expiryUseCase = mockk<DaysUntilExpiryUseCase>(relaxed = true)
     private val api = FakeAuthApi()
-    private val giftCardViewModel = GiftCardRedeemViewModel(GiftCardRepository(api))
+    private val giftCardViewModel = GiftCardRedeemViewModel(GiftCardRepositoryImpl(api))
 
     private fun content() {
         every { subscribeRepository.subscribeInfo } returns MutableStateFlow<SubscribeInfo?>(null)
-        every { sessionManager.sessionState } returns MutableStateFlow(SessionState.LoggedOut)
-        val viewModel = ProfileViewModel(subscribeRepository, sessionManager, authRepository, expiryUseCase)
+        every { authRepository.sessionState } returns MutableStateFlow(SessionState.LoggedOut)
+        val viewModel = ProfileViewModel(subscribeRepository, authRepository, expiryUseCase)
 
         composeRule.setContent {
             SlteTheme {

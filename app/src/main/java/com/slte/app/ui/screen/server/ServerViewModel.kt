@@ -3,12 +3,12 @@ package com.slte.app.ui.screen.server
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.github.kr328.clash.core.model.UrlTestResult
-import com.slte.app.data.local.SpecialNodeSnapshot
-import com.slte.app.data.repository.ServerRepository
-import com.slte.app.data.repository.SubscribeRepository
+import com.slte.app.domain.model.SpecialNodeSnapshot
+import com.slte.app.domain.repository.ServerRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.kernel.KernelProxy
 import com.slte.app.kernel.KernelServerInfo
+import com.slte.app.kernel.KernelUrlTestFailure
 import com.slte.app.kernel.LIVE_SELECTION_BUSY_POLL_MS
 import com.slte.app.kernel.NodeNameResolver
 import com.slte.app.kernel.SelectionType
@@ -254,7 +254,6 @@ constructor(
                         name = server.name,
                         countryCode = extractCountryCode(server.name),
                         type = server.type.name,
-                        host = server.host,
                         delay = existing[server.name],
                         offline = offlineByName[server.name] ?: false,
                     )
@@ -342,7 +341,7 @@ constructor(
                             kernelProxy.urlTestFailureKind(
                                 name = it,
                                 timeoutMs = Constants.NODE_URLTEST_TIMEOUT_MS,
-                            ) == UrlTestResult.KIND_OFFLINE
+                            ) == KernelUrlTestFailure.OFFLINE
                         }
                     }
                 }.awaitAll().filterNotNull().toSet()
@@ -447,7 +446,6 @@ data class NodeItem(
     val name: String,
     val countryCode: String = "XX",
     val type: String = "",
-    val host: String = "",
     val delay: Int? = null,
     val proxyName: String? = null,
     val offline: Boolean = false,

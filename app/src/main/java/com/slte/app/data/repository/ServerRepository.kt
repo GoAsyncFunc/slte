@@ -2,9 +2,10 @@ package com.slte.app.data.repository
 
 import com.slte.app.BuildConfig
 import com.slte.app.data.local.SessionStore
-import com.slte.app.data.local.SpecialNodeSnapshot
 import com.slte.app.data.remote.api.AuthApi
 import com.slte.app.domain.model.ServerNode
+import com.slte.app.domain.model.SpecialNodeSnapshot
+import com.slte.app.domain.repository.ServerRepository as ServerRepositoryContract
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import javax.inject.Inject
@@ -28,14 +29,14 @@ internal object CachePolicy {
 }
 
 @Singleton
-class ServerRepository
+class ServerRepositoryImpl
 @Inject
 constructor(
     private val authApi: AuthApi,
     private val sessionStore: SessionStore,
-) {
+) : ServerRepositoryContract {
 
-    suspend fun fetchServers(force: Boolean = false): Result<List<ServerNode>> = runApi {
+    override suspend fun fetchServers(force: Boolean): Result<List<ServerNode>> = runApi {
         val cached = sessionStore.getServerNodes()
         val fetchedAt = sessionStore.getServerNodesFetchedAt()
         if (!force && cached != null && CachePolicy.isFresh(fetchedAt, System.currentTimeMillis(), CachePolicy.SERVER_NODES_TTL_MS)) {
@@ -61,22 +62,22 @@ constructor(
         }
     }
 
-    fun getCachedServers(): List<ServerNode>? = sessionStore.getServerNodes()
+    override fun getCachedServers(): List<ServerNode>? = sessionStore.getServerNodes()
 
-    fun invalidateCache() {
+    override fun invalidateCache() {
         sessionStore.clearServerNodes()
     }
 
     /** 自动选择/故障转移最近一次成员快照：内核离线时垫显示，实时值到达后覆盖。 */
-    fun saveAutoNodeSnapshot(snapshot: SpecialNodeSnapshot) = sessionStore.saveAutoNodeSnapshot(snapshot)
+    override fun saveAutoNodeSnapshot(snapshot: SpecialNodeSnapshot) = sessionStore.saveAutoNodeSnapshot(snapshot)
 
-    fun getAutoNodeSnapshot(): SpecialNodeSnapshot? = sessionStore.getAutoNodeSnapshot()
+    override fun getAutoNodeSnapshot(): SpecialNodeSnapshot? = sessionStore.getAutoNodeSnapshot()
 
-    fun saveFallbackNodeSnapshot(snapshot: SpecialNodeSnapshot) = sessionStore.saveFallbackNodeSnapshot(snapshot)
+    override fun saveFallbackNodeSnapshot(snapshot: SpecialNodeSnapshot) = sessionStore.saveFallbackNodeSnapshot(snapshot)
 
-    fun getFallbackNodeSnapshot(): SpecialNodeSnapshot? = sessionStore.getFallbackNodeSnapshot()
+    override fun getFallbackNodeSnapshot(): SpecialNodeSnapshot? = sessionStore.getFallbackNodeSnapshot()
 
-    fun invalidateSpecialNodeSnapshots() = sessionStore.clearSpecialNodeSnapshots()
+    override fun invalidateSpecialNodeSnapshots() = sessionStore.clearSpecialNodeSnapshots()
 
     private fun debugLog(message: String) {
         if (BuildConfig.DEBUG) {

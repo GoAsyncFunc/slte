@@ -2,6 +2,10 @@ package com.slte.app.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.slte.app.ui.component.ToastTip
 import com.slte.app.ui.screen.about.AboutScreen
 import com.slte.app.ui.screen.giftcard.GiftCardRedeemViewModel
 import com.slte.app.ui.screen.invite.InviteScreen
@@ -101,6 +105,12 @@ internal fun ProfilePageContent(
     onAbout: () -> Unit,
 ) {
     LaunchedEffect(Unit) { profileViewModel.refresh() }
+    val profileErrorRes by profileViewModel.errorMessageRes.collectAsStateWithLifecycle()
+    // 加载失败必须可见：这个页面的 errorMessageRes 以前没有任何界面消费，失败时静默显示旧数据
+    ToastTip(
+        message = profileErrorRes?.let { stringResource(it) },
+        onDismiss = profileViewModel::clearError,
+    )
     ProfileScreen(
         onBack = onBack,
         onOrders = onOrders,

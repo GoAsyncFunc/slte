@@ -140,7 +140,7 @@ data class ConfigurationOverride(
     @Serializable
     data class App(
         @SerialName("append-system-dns")
-        var appendSystemDns: Boolean? = null
+        var appendSystemDns: Boolean? = null,
     )
 
     @Serializable
@@ -154,6 +154,7 @@ data class ConfigurationOverride(
         @SerialName("always")
         Always,
     }
+
     @Serializable
     enum class DnsEnhancedMode {
         @SerialName("normal")
@@ -165,6 +166,7 @@ data class ConfigurationOverride(
         @SerialName("fake-ip")
         FakeIp,
     }
+
     @Serializable
     enum class FilterMode {
         @SerialName("blacklist")
@@ -253,17 +255,11 @@ data class ConfigurationOverride(
         Parcelizer.encodeToParcel(serializer(), parcel, this)
     }
 
-    override fun describeContents(): Int {
-        return 0
-    }
+    override fun describeContents(): Int = 0
 
     companion object CREATOR : Parcelable.Creator<ConfigurationOverride> {
-        override fun createFromParcel(parcel: Parcel): ConfigurationOverride {
-            return Parcelizer.decodeFromParcel(serializer(), parcel)
-        }
+        override fun createFromParcel(parcel: Parcel): ConfigurationOverride = Parcelizer.decodeFromParcel(serializer(), parcel)
 
-        override fun newArray(size: Int): Array<ConfigurationOverride?> {
-            return arrayOfNulls(size)
-        }
+        override fun newArray(size: Int): Array<ConfigurationOverride?> = arrayOfNulls(size)
     }
 }

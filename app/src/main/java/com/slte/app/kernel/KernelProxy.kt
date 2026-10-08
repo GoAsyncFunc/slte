@@ -1,12 +1,7 @@
 package com.slte.app.kernel
 
 import android.content.Context
-import android.content.Intent
 import androidx.core.content.edit
-import com.github.kr328.clash.common.constants.Intents
-import com.github.kr328.clash.core.Clash
-import com.github.kr328.clash.core.model.TunnelState
-import com.github.kr328.clash.service.util.sendBroadcastSelf
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,7 +19,6 @@ data class KernelServerInfo(
 
 data class IpGeoInfo(
     val ip: String,
-    val ipv6: String? = null,
     val countryCode: String?,
 )
 
@@ -33,7 +27,7 @@ class KernelProxy
 @Inject
 constructor(
     internal val faultReporter: KernelFaultReporter,
-    internal val manager: KernelManager,
+    internal val manager: KernelBridge,
     internal val config: KernelConfig,
     internal val speedResultStore: SpeedResultStore,
     internal val geoIpResolver: GeoIpResolver,
@@ -50,27 +44,27 @@ constructor(
 
     /** 唤醒内核：确保配置已加载，后面的健康检查/切换才有意义。 */
     suspend fun warmUp(): Boolean = safe(false, "warmUp") {
-        val clash = manager.clash() ?: return@safe false
+        val clash = manager.awaitClash() ?: return@safe false
         config.ensureProfile()
         clash.loadActiveProfile()
         true
     }
 
     suspend fun coreVersion(): String? = safe(null, "coreVersion") {
-        manager.clash()?.coreVersion()
+        manager.awaitClash()?.coreVersion()
     }
 
     suspend fun proxyMode(): String? = safe(null, "proxyMode") {
-        val clash = manager.clash() ?: return@safe null
+        val clash = manager.awaitClash() ?: return@safe null
 
         val mode =
-            clash.queryOverride(Clash.OverrideSlot.Persist).mode
-                ?: clash.queryTunnelState().mode
+            clash.queryPersistedProxyMode()
+                ?: clash.queryTunnelMode()
         when (mode) {
-            TunnelState.Mode.Global -> Constants.PROXY_MODE_GLOBAL
-            TunnelState.Mode.Rule -> Constants.DEFAULT_PROXY_MODE
-            TunnelState.Mode.Direct -> Constants.PROXY_MODE_DIRECT
-            TunnelState.Mode.Script -> Constants.PROXY_MODE_SCRIPT
+            KernelTunnelMode.GLOBAL -> Constants.PROXY_MODE_GLOBAL
+            KernelTunnelMode.RULE -> Constants.DEFAULT_PROXY_MODE
+            KernelTunnelMode.DIRECT -> Constants.PROXY_MODE_DIRECT
+            KernelTunnelMode.SCRIPT -> Constants.PROXY_MODE_SCRIPT
         }
     }
 
@@ -78,41 +72,33 @@ constructor(
         AppLog.d("SLTE-Kernel", "setProxyMode: $mode")
 
         modePrefs.edit { putString(KEY_PROXY_MODE, mode) }
-        val clash = manager.clash()
+        val clash = manager.awaitClash()
         if (clash == null) {
             AppLog.d("SLTE-Kernel", "setProxyMode: clash=null，已本地保存，待内核就绪后同步")
             return@safe
         }
-        val override =
-            clash.queryOverride(Clash.OverrideSlot.Persist).apply {
-                this.mode = tunnelModeOf(mode)
-            }
-        clash.patchOverride(Clash.OverrideSlot.Persist, override)
+        clash.setPersistedProxyMode(tunnelModeOf(mode))
         AppLog.d("SLTE-Kernel", "setProxyMode: override written, sending broadcast")
-        context.sendBroadcastSelf(Intent(Intents.ACTION_OVERRIDE_CHANGED))
+        manager.notifyOverrideChanged()
     }
 
     suspend fun ensurePersistedMode() = safe(Unit, "ensurePersistedMode") {
-        val clash = manager.clash() ?: return@safe
+        val clash = manager.awaitClash() ?: return@safe
         val saved = modePrefs.getString(KEY_PROXY_MODE, null) ?: return@safe
         val target = tunnelModeOf(saved)
-        val current = clash.queryOverride(Clash.OverrideSlot.Persist).mode
+        val current = clash.queryPersistedProxyMode()
         if (current != target) {
-            val override =
-                clash.queryOverride(Clash.OverrideSlot.Persist).apply {
-                    this.mode = target
-                }
-            clash.patchOverride(Clash.OverrideSlot.Persist, override)
-            context.sendBroadcastSelf(Intent(Intents.ACTION_OVERRIDE_CHANGED))
+            clash.setPersistedProxyMode(target)
+            manager.notifyOverrideChanged()
             AppLog.d("SLTE-Kernel", "ensurePersistedMode: synced $saved")
         }
     }
 
-    private fun tunnelModeOf(mode: String): TunnelState.Mode = when (mode) {
-        Constants.PROXY_MODE_GLOBAL -> TunnelState.Mode.Global
-        Constants.PROXY_MODE_DIRECT -> TunnelState.Mode.Direct
-        Constants.PROXY_MODE_SCRIPT -> TunnelState.Mode.Script
-        else -> TunnelState.Mode.Rule
+    private fun tunnelModeOf(mode: String): KernelTunnelMode = when (mode) {
+        Constants.PROXY_MODE_GLOBAL -> KernelTunnelMode.GLOBAL
+        Constants.PROXY_MODE_DIRECT -> KernelTunnelMode.DIRECT
+        Constants.PROXY_MODE_SCRIPT -> KernelTunnelMode.SCRIPT
+        else -> KernelTunnelMode.RULE
     }
 
     /**
@@ -141,7 +127,7 @@ constructor(
      * MANUAL 的节点已改名或被删时恢复不了：清掉记录、落回自动选择，不阻塞连接流程。
      */
     suspend fun ensurePersistedSelection() = safe(Unit, "ensurePersistedSelection") {
-        val clash = manager.clash() ?: return@safe
+        val clash = manager.awaitClash() ?: return@safe
         // 分组还没加载完就先不重放：此时切换必失败，会把用户的选择误当成"节点已不存在"清掉
         if (selectorGroup() == null && waitForGroups() == null) return@safe
         val savedType = modePrefs.getString(KEY_SELECTION_TYPE, null) ?: return@safe
@@ -169,7 +155,7 @@ constructor(
     }
 
     suspend fun tunStackMode(): String = safe(DEFAULT_TUN_STACK, "tunStackMode") {
-        val clash = manager.clash()
+        val clash = manager.awaitClash()
         if (clash != null) {
             val current = clash.tunStackMode()
             modePrefs.edit { putString(KEY_TUN_STACK, current) }
@@ -181,7 +167,7 @@ constructor(
     suspend fun setTunStack(mode: String) = safe(Unit, "setTunStack") {
         val normalized = if (mode in TUN_STACK_VALUES) mode else DEFAULT_TUN_STACK
         modePrefs.edit { putString(KEY_TUN_STACK, normalized) }
-        val clash = manager.clash()
+        val clash = manager.awaitClash()
         if (clash == null) {
             AppLog.w("SLTE-Kernel", "setTunStack: clash=null，已本地保存，待内核就绪后同步")
             return@safe

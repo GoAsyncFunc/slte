@@ -11,14 +11,6 @@ import com.slte.app.data.remote.adapter.xboard.XboardPlanData
 import com.slte.app.data.remote.adapter.xboard.XboardResponse
 import com.slte.app.data.remote.adapter.xboard.XboardSubscribeData
 import com.slte.app.data.remote.adapter.xboard.XboardUserInfoData
-import com.slte.app.data.remote.adapter.xboard.toDomain
-import com.slte.app.data.remote.adapter.xboard.toDomainCouponCheck
-import com.slte.app.data.remote.adapter.xboard.toDomainLoginResponse
-import com.slte.app.data.remote.adapter.xboard.toDomainOrder
-import com.slte.app.data.remote.adapter.xboard.toDomainPaymentMethod
-import com.slte.app.data.remote.adapter.xboard.toDomainPlan
-import com.slte.app.data.remote.adapter.xboard.toDomainSubscribeInfo
-import com.slte.app.data.remote.adapter.xboard.toDomainUserInfo
 import com.slte.app.data.remote.adapter.xiaov2b.XiaoV2bCommissionRecordData
 import com.slte.app.data.remote.adapter.xiaov2b.XiaoV2bCouponData
 import com.slte.app.data.remote.adapter.xiaov2b.XiaoV2bInviteCodeData
@@ -378,8 +370,10 @@ class DtoBoundaryTest {
 
     @Test
     fun `退款金额在两套后端取自不同字段`() {
+        // 退款金额取自哪个字段是面板口径，由调用方传入（生产装配见各面板实现）
         val xboardWithSurplusCredit =
-            json.decodeFromString<XboardOrderData>("""{"surplus_credit":7,"refund_amount":9}""").toDomainOrder()
+            json.decodeFromString<XboardOrderData>("""{"surplus_credit":7,"refund_amount":9}""")
+                .toDomainOrder(surplusCreditAsRefund = true)
         val xiaoWithRefundAmount =
             json.decodeFromString<XiaoV2bOrderData>("""{"surplus_credit":7,"refund_amount":9}""").toDomainOrder()
 
@@ -398,7 +392,7 @@ class DtoBoundaryTest {
             "plan":{"id":3,"name":"P1","show":true,"renew":false}}
             """.trimIndent()
 
-        val dto = json.decodeFromString<XboardOrderData>(raw).toDomainOrder()
+        val dto = json.decodeFromString<XboardOrderData>(raw).toDomainOrder(surplusCreditAsRefund = true)
 
         assertEquals(9, dto.id)
         assertEquals("TN-1", dto.tradeNo)
@@ -651,7 +645,7 @@ class DtoBoundaryTest {
     @Test
     fun `XiaoV2b 邀请码状态不归一化而 Xboard 归一化为零一`() {
         val xiao = XiaoV2bInviteCodeData(status = 2).toDomain()
-        val xboard = XboardInviteCodeData(status = true).toDomain()
+        val xboard = json.decodeFromString<XboardInviteCodeData>("""{"status":true}""").toDomain()
 
         assertEquals(2, xiao.status)
         assertEquals(1, xboard.status)

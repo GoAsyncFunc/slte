@@ -1,11 +1,10 @@
 package com.slte.app.ui.screen.profile
 
-import com.slte.app.data.local.SessionManager
-import com.slte.app.data.repository.AuthRepository
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.AuthRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.domain.usecase.DaysUntilExpiryUseCase
 import com.slte.app.support.MainDispatcherRule
 import io.mockk.coEvery
@@ -25,7 +24,6 @@ class ProfileViewModelTest {
     val mainRule = MainDispatcherRule()
 
     private val subscribeRepository = mockk<SubscribeRepository>(relaxed = true)
-    private val sessionManager = mockk<SessionManager>(relaxed = true)
     private val authRepository = mockk<AuthRepository>(relaxed = true)
     private val expiryUseCase = mockk<DaysUntilExpiryUseCase>(relaxed = true)
 
@@ -44,12 +42,31 @@ class ProfileViewModelTest {
         cachedUser: User? = null,
         cachedSubscribe: SubscribeInfo? = null,
     ): ProfileViewModel {
-        every { sessionManager.sessionState } returns MutableStateFlow(SessionState.LoggedOut)
+        every { authRepository.sessionState } returns MutableStateFlow(SessionState.LoggedOut)
         every { subscribeRepository.getCachedUserInfo() } returns cachedUser
         every { subscribeRepository.subscribeInfo } returns subscribeFlow
         every { expiryUseCase(any()) } returns 49
         subscribeFlow.value = cachedSubscribe
-        return ProfileViewModel(subscribeRepository, sessionManager, authRepository, expiryUseCase)
+        return ProfileViewModel(subscribeRepository, authRepository, expiryUseCase)
+    }
+
+    @Test
+    fun `订阅接口失败且没有缓存时给出可见提示，重试成功后清除`() = runTest(mainRule.dispatcher) {
+        coEvery { subscribeRepository.fetchUserInfo(any()) } returns Result.failure(java.io.IOException("boom"))
+        coEvery { subscribeRepository.fetchSubscribeInfo(any()) } returns Result.failure(java.io.IOException("boom"))
+        val vm = viewModel()
+
+        vm.refresh()
+        advanceUntilIdle()
+        assertTrue("加载失败必须有提示（此前后台静默，用户什么都看不到）", vm.errorMessageRes.value != null)
+
+        coEvery { subscribeRepository.fetchSubscribeInfo(any()) } returns publish(subscribe(expiredAt = 1_800_000_000L))
+        vm.retry()
+        advanceUntilIdle()
+        assertEquals("重试成功后应清掉提示", null, vm.errorMessageRes.value)
+
+        vm.clearError()
+        assertEquals(null, vm.errorMessageRes.value)
     }
 
     @Test

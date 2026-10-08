@@ -2,41 +2,28 @@ package com.github.kr328.clash.core.util
 
 import com.github.kr328.clash.core.model.Traffic
 
-fun Traffic.trafficUpload(): String {
-    return trafficString(scaleTraffic(this ushr 32))
-}
+fun Traffic.trafficUpload(): String = trafficString(scaleTraffic(this ushr 32))
 
-fun Traffic.trafficDownload(): String {
-    return trafficString(scaleTraffic(this and 0xFFFFFFFF))
-}
+fun Traffic.trafficDownload(): String = trafficString(scaleTraffic(this and 0xFFFFFFFF))
 
-fun Traffic.trafficTotal(): String {
-    val upload = scaleTraffic(this ushr 32)
-    val download = scaleTraffic(this and 0xFFFFFFFF)
+private fun trafficString(scaled: Long): String = when {
+    scaled > 1024 * 1024 * 1024 * 100L -> {
+        val data = scaled / 1024 / 1024 / 1024
 
-    return trafficString(upload + download)
-}
+        String.format("%.2f GiB", data.toFloat() / 100)
+    }
+    scaled > 1024 * 1024 * 100L -> {
+        val data = scaled / 1024 / 1024
 
-private fun trafficString(scaled: Long): String {
-    return when {
-        scaled > 1024 * 1024 * 1024 * 100L -> {
-            val data = scaled / 1024 / 1024 / 1024
+        String.format("%.2f MiB", data.toFloat() / 100)
+    }
+    scaled > 1024 * 100L -> {
+        val data = scaled / 1024
 
-            String.format("%.2f GiB", data.toFloat() / 100)
-        }
-        scaled > 1024 * 1024 * 100L -> {
-            val data = scaled / 1024 / 1024
-
-            String.format("%.2f MiB", data.toFloat() / 100)
-        }
-        scaled > 1024 * 100L -> {
-            val data = scaled / 1024
-
-            String.format("%.2f KiB", data.toFloat() / 100)
-        }
-        else -> {
-            "$scaled Bytes"
-        }
+        String.format("%.2f KiB", data.toFloat() / 100)
+    }
+    else -> {
+        "$scaled Bytes"
     }
 }
 

@@ -3,8 +3,8 @@ package com.slte.app.ui.screen.plans
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.slte.app.data.repository.OrderRepository
 import com.slte.app.domain.model.PlanInfo
+import com.slte.app.domain.repository.OrderRepository
 import com.slte.app.ui.ContentPhase
 import com.slte.app.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel

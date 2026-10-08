@@ -44,7 +44,9 @@ internal object AuthRules {
         // 401 与 403 同门控：白名单内非 auth 路径（订阅 CDN/WAF 等）的 401 不再踢登录，
         // 只要是 /api/v1/user/ 下的鉴权接口返回 401，令牌过期依然会被正确清理
         val authFailed =
-            (responseCode == 401 || (responseCode == 403 && isAuthFailureBody)) && isAuthPath
+            isAllowedHost &&
+                (responseCode == 401 || (responseCode == 403 && isAuthFailureBody)) &&
+                isAuthPath
         val clearSession = authFailed && token != null
         return Decision(attachToken = attachToken, clearSession = clearSession)
     }
@@ -67,9 +69,9 @@ class AuthInterceptor
 constructor(
     private val sessionStore: SessionStore,
 ) : Interceptor {
-    private val _authErrorEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val _authErrorEvents = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 1)
 
-    val authErrorEvents: SharedFlow<Unit> = _authErrorEvents.asSharedFlow()
+    val authErrorEvents: SharedFlow<String> = _authErrorEvents.asSharedFlow()
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -102,15 +104,18 @@ constructor(
         val clearSession =
             AuthRules.decide(
                 token = token,
-                isAllowedHost = canAttachToken,
-                hasAuthHeader = request.header("Authorization") != null,
+                // Redirects can change hosts. Only trust an auth failure from an allowed host
+                // that actually received this session's credential.
+                isAllowedHost =
+                AllowedHosts.isAllowedHost(response.request.url.host) &&
+                    response.request.header("Authorization") == token,
+                hasAuthHeader = response.request.header("Authorization") != null,
                 responseCode = response.code,
                 isAuthFailureBody = isAuthFailureResponse(response),
                 isAuthPath = AuthRules.isAuthPath(response.request.url.encodedPath),
             ).clearSession
         if (clearSession && token == sessionStore.getAuthData()) {
-            sessionStore.clear()
-            _authErrorEvents.tryEmit(Unit)
+            token?.let(_authErrorEvents::tryEmit)
         }
 
         return response

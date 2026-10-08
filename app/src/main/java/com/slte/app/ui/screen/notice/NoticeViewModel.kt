@@ -5,8 +5,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.Notice
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.ui.ContentPhase
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog

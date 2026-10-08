@@ -1,7 +1,6 @@
 package com.slte.app.ui.component
 
 import android.content.Context
-import android.view.Gravity
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
@@ -16,41 +15,28 @@ class ToastHandle
 internal constructor(
     private val context: Context,
 ) {
-    fun show(
-        message: String,
-        centered: Boolean = false,
-    ) = display(message, long = false, centered = centered)
+    fun show(message: String) = display(message, long = false)
 
-    fun showLong(
-        message: String,
-        centered: Boolean = false,
-    ) = display(message, long = true, centered = centered)
+    fun showLong(message: String) = display(message, long = true)
 
     fun show(
         @StringRes messageRes: Int,
-        centered: Boolean = false,
-    ) = show(context.getString(messageRes), centered)
+    ) = show(context.getString(messageRes))
 
     fun showLong(
         @StringRes messageRes: Int,
-        centered: Boolean = false,
-    ) = showLong(context.getString(messageRes), centered)
+    ) = showLong(context.getString(messageRes))
 
     private fun display(
         message: String,
         long: Boolean,
-        centered: Boolean,
     ) {
-        val toast =
-            Toast.makeText(
+        Toast
+            .makeText(
                 context,
                 message,
                 if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT,
-            )
-        if (centered) {
-            toast.setGravity(Gravity.CENTER, 0, 0)
-        }
-        toast.show()
+            ).show()
     }
 }
 

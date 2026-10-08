@@ -5,13 +5,12 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.core.Clash
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import java.util.concurrent.TimeUnit
 
 class AppListCacheModule(service: Service) : Module<Unit>(service) {
-    private fun PackageInfo.uniqueUidName(): String =
-        if (sharedUserId?.isNotBlank() == true) sharedUserId!! else packageName
+    private fun PackageInfo.uniqueUidName(): String = if (sharedUserId?.isNotBlank() == true) sharedUserId!! else packageName
 
     private fun reload() {
         val packages = service.packageManager.getInstalledPackages(0)

@@ -6,7 +6,7 @@ import com.slte.app.data.local.LocaleStore
 import com.slte.app.data.remote.config.CrispConfig
 import com.slte.app.data.remote.config.CrispManager
 import com.slte.app.data.remote.config.RemoteConfig
-import com.slte.app.kernel.KernelManager
+import com.slte.app.kernel.KernelBridge
 import dagger.hilt.android.HiltAndroidApp
 import java.io.File
 import java.io.FileOutputStream
@@ -22,7 +22,7 @@ class SlteApplication : Application() {
     lateinit var crispManager: CrispManager
 
     @Inject
-    lateinit var kernelManager: KernelManager
+    lateinit var kernelManager: KernelBridge
 
     @Inject
     lateinit var remoteConfig: RemoteConfig

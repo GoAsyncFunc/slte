@@ -12,30 +12,30 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.window.DialogProperties
-import com.slte.app.data.local.LocaleStore
+import com.slte.app.domain.repository.LocaleRepository
 import com.slte.app.utils.LocaleContextWrapper
 import java.util.Locale
 
 val LocalAppLocale = staticCompositionLocalOf<Locale?> { null }
 
-val LocalLocaleStore = staticCompositionLocalOf<LocaleStore?> { null }
+val LocalLocaleRepository = staticCompositionLocalOf<LocaleRepository?> { null }
 
 @Composable
 fun AppLocaleContent(
     locale: Locale?,
-    localeStore: LocaleStore? = null,
+    localeRepository: LocaleRepository? = null,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val store = localeStore ?: LocalLocaleStore.current
+    val repository = localeRepository ?: LocalLocaleRepository.current
     val localeContext =
         remember(locale) {
-            LocaleContextWrapper(context) { store?.locale?.value ?: locale }
+            LocaleContextWrapper(context) { repository?.locale?.value ?: locale }
         }
     CompositionLocalProvider(
         LocalContext provides localeContext,
         LocalAppLocale provides locale,
-        LocalLocaleStore provides store,
+        LocalLocaleRepository provides repository,
     ) {
         content()
     }

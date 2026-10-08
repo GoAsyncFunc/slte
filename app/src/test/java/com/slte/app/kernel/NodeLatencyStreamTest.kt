@@ -1,12 +1,10 @@
 package com.slte.app.kernel
 
 import android.content.Context
-import com.github.kr328.clash.core.model.Proxy
-import com.github.kr328.clash.core.model.ProxyGroup
-import com.github.kr328.clash.service.remote.IClashManager
 import com.slte.app.data.local.InMemoryPreferences
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.utils.Constants
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -35,7 +33,7 @@ class NodeLatencyStreamTest {
     private val prefs = InMemoryPreferences()
     private val context = mockk<Context>(relaxed = true)
     private val manager = mockk<KernelManager>(relaxed = true)
-    private val clash = mockk<IClashManager>(relaxed = true)
+    private val clash = mockk<KernelClash>(relaxed = true)
     private val config = mockk<KernelConfig>(relaxed = true)
     private val store = mockk<SpeedResultStore>(relaxed = true)
     private val geoIp = mockk<GeoIpResolver>(relaxed = true)
@@ -50,23 +48,15 @@ class NodeLatencyStreamTest {
         name: String,
         delay: Int,
         measured: Boolean,
-    ) = Proxy(
-        name = name,
-        title = name,
-        subtitle = "vless",
-        type = "Vless",
-        delay = delay,
-        isGroup = false,
-        measured = measured,
-    )
+    ) = KernelProxySnapshot(name = name, isGroup = false, delay = delay, measured = measured)
 
     private fun kernelProxy(): KernelProxy {
         every { context.getSharedPreferences(any(), any()) } returns prefs
         every { context.packageName } returns "com.slte.app"
-        every { manager.clash() } returns clash
+        coEvery { manager.awaitClash() } returns clash
         every { clash.queryProxyGroupNames(any()) } returns listOf(group)
         every { clash.queryProxyGroup(group, any()) } answers {
-            ProxyGroup(
+            KernelProxyGroupSnapshot(
                 type = "Selector",
                 proxies = delays.map { (name, delay) -> proxyOf(name, delay, measured[name] ?: false) },
                 now = NODE_HK,

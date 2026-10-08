@@ -1,6 +1,5 @@
 package com.slte.app.data.repository
 
-import com.slte.app.data.local.SessionManager
 import com.slte.app.data.local.SessionStore
 import com.slte.app.data.remote.api.AuthApi
 import com.slte.app.data.remote.api.dto.SubscribeInfoDto as ApiSubscribeInfo
@@ -8,6 +7,8 @@ import com.slte.app.domain.model.Notice
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.SessionRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.FormatUtils
 import javax.inject.Inject
@@ -23,19 +24,18 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-
 @Singleton
-class SubscribeRepository
+class SubscribeRepositoryImpl
 @Inject
 constructor(
     private val authApi: AuthApi,
     private val sessionStore: SessionStore,
-    private val sessionManager: SessionManager,
-) {
+    private val sessionManager: SessionRepository,
+) : SubscribeRepository {
 
     private val _subscribeInfo = MutableStateFlow(sessionStore.getSubscribeInfo())
 
-    val subscribeInfo: StateFlow<SubscribeInfo?> = _subscribeInfo.asStateFlow()
+    override val subscribeInfo: StateFlow<SubscribeInfo?> = _subscribeInfo.asStateFlow()
 
     @Volatile
     private var cachedSubscribeInfo: SubscribeInfo? = null
@@ -58,7 +58,7 @@ constructor(
             .launchIn(CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
     }
 
-    suspend fun fetchSubscribeInfo(force: Boolean = false): Result<SubscribeInfo> {
+    override suspend fun fetchSubscribeInfo(force: Boolean): Result<SubscribeInfo> {
         if (sessionManager.sessionState.value !is SessionState.LoggedIn) {
             return Result.failure(IllegalStateException("未登录"))
         }
@@ -102,11 +102,11 @@ constructor(
         }
     }
 
-    fun getCachedSubscribeInfo(): SubscribeInfo? = sessionStore.getSubscribeInfo()
+    override fun getCachedSubscribeInfo(): SubscribeInfo? = sessionStore.getSubscribeInfo()
 
-    fun getSubscriptionUpdatedAt(): Long = sessionStore.getSubscriptionUpdatedAt()
+    override fun getSubscriptionUpdatedAt(): Long = sessionStore.getSubscriptionUpdatedAt()
 
-    suspend fun fetchUserInfo(force: Boolean = false): Result<User> {
+    override suspend fun fetchUserInfo(force: Boolean): Result<User> {
         if (sessionManager.sessionState.value !is SessionState.LoggedIn) {
             return Result.failure(IllegalStateException("未登录"))
         }
@@ -151,14 +151,14 @@ constructor(
         }
     }
 
-    fun getCachedUserInfo(): User? = sessionStore.getUserInfo()
+    override fun getCachedUserInfo(): User? = sessionStore.getUserInfo()
 
-    fun updateCachedUserInfo(user: User) {
+    override fun updateCachedUserInfo(user: User) {
         cachedUserInfo = user
         sessionStore.saveUserInfo(user)
     }
 
-    suspend fun fetchNotices(): Result<List<Notice>> {
+    override suspend fun fetchNotices(): Result<List<Notice>> {
         if (sessionManager.sessionState.value !is SessionState.LoggedIn) {
             return Result.failure(IllegalStateException("未登录"))
         }
@@ -167,7 +167,7 @@ constructor(
         }
     }
 
-    internal fun invalidateCache() {
+    override fun invalidateCache() {
         cachedSubscribeInfo = null
         subscribeInfoTimestamp = 0L
         cachedUserInfo = null

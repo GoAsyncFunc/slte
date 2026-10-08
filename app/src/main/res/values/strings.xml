@@ -32,6 +32,7 @@
     <string name="error_network">请求失败</string>
     <string name="error_email_send_failed">验证码发送失败</string>
     <string name="error_email_required">请输入邮箱</string>
+    <string name="error_email_invalid">邮箱格式不正确</string>
     <string name="error_code_required">请输入验证码</string>
     <string name="error_password_required">请输入密码</string>
     <string name="error_new_password_required">请输入新密码</string>
@@ -218,6 +219,7 @@
     <string name="settings_change_pwd_mismatch">两次输入的新密码不一致</string>
     <string name="settings_change_pwd_failed">修改失败</string>
     <string name="settings_change_pwd_success">密码修改成功</string>
+    <string name="settings_change_pwd_sign_in_required">密码已修改，请使用新密码重新登录</string>
     <string name="settings_expire_remind">到期邮件提醒</string>
     <string name="settings_traffic_remind">流量邮件提醒</string>
     <string name="settings_remind_save_failed">提醒设置保存失败</string>

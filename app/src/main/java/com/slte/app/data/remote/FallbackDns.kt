@@ -1,5 +1,6 @@
 package com.slte.app.data.remote
 
+import com.slte.app.domain.repository.DnsCache
 import com.slte.app.utils.AppLog
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -14,7 +15,9 @@ import okhttp3.Dns
 @Singleton
 class FallbackDns
 @Inject
-constructor() : Dns {
+constructor() :
+    Dns,
+    DnsCache {
 
     private val cache = ConcurrentHashMap<String, CachedEntry>()
 
@@ -59,9 +62,11 @@ constructor() : Dns {
         throw UnknownHostException("FallbackDns: 所有 DNS 均无法解析")
     }
 
-    fun clearCache() {
+    override fun clear() {
         cache.clear()
     }
+
+    fun clearCache() = clear()
 
     private data class CachedEntry(
         val ips: List<InetAddress>,

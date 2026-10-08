@@ -4,14 +4,12 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 
-fun InetAddress.asSocketAddressText(port: Int): String {
-    return when (this) {
-        is Inet6Address ->
-            "[${numericToTextFormat(this)}]:$port"
-        is Inet4Address ->
-            "${this.hostAddress}:$port"
-        else -> throw IllegalArgumentException("Unsupported Inet type ${this.javaClass}")
-    }
+fun InetAddress.asSocketAddressText(port: Int): String = when (this) {
+    is Inet6Address ->
+        "[${numericToTextFormat(this)}]:$port"
+    is Inet4Address ->
+        "${this.hostAddress}:$port"
+    else -> throw IllegalArgumentException("Unsupported Inet type ${this.javaClass}")
 }
 
 private const val INT16SZ = 2
@@ -23,8 +21,8 @@ private fun numericToTextFormat(address: Inet6Address): String {
         sb.append(
             Integer.toHexString(
                 src[i shl 1].toInt() shl 8 and 0xff00
-                        or (src[(i shl 1) + 1].toInt() and 0xff)
-            )
+                    or (src[(i shl 1) + 1].toInt() and 0xff),
+            ),
         )
         if (i < INADDRSZ / INT16SZ - 1) {
             sb.append(":")
@@ -40,4 +38,3 @@ private fun numericToTextFormat(address: Inet6Address): String {
     }
     return sb.toString()
 }
-

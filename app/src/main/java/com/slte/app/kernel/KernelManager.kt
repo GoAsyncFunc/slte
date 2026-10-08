@@ -16,15 +16,14 @@ import com.github.kr328.clash.core.model.LogMessage
 import com.github.kr328.clash.service.RemoteService
 import com.github.kr328.clash.service.StatusProvider
 import com.github.kr328.clash.service.TunService
-import com.github.kr328.clash.service.remote.IClashManager
 import com.github.kr328.clash.service.remote.ILogObserver
-import com.github.kr328.clash.service.remote.IProfileManager
 import com.github.kr328.clash.service.remote.IRemoteService
 import com.github.kr328.clash.service.remote.unwrap
 import com.github.kr328.clash.service.util.sendBroadcastSelf
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -35,14 +34,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Singleton
 class KernelManager
 @Inject
 constructor(
     @ApplicationContext private val context: Context,
-) {
+) : KernelBridge {
 
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -60,12 +62,15 @@ constructor(
     @Volatile
     private var syncSeq = 0
 
-    private val _connected = MutableStateFlow(false)
-    val connected: StateFlow<Boolean> = _connected.asStateFlow()
+    private val _vpnConnected = MutableStateFlow(false)
+    override val vpnConnected: StateFlow<Boolean> = _vpnConnected.asStateFlow()
+
+    private val _bindingState = MutableStateFlow(KernelBindingState.DISCONNECTED)
+    override val bindingState: StateFlow<KernelBindingState> = _bindingState.asStateFlow()
 
     private val _profileLoaded = MutableStateFlow(0)
 
-    val profileLoaded: StateFlow<Int> = _profileLoaded.asStateFlow()
+    override val profileLoaded: StateFlow<Int> = _profileLoaded.asStateFlow()
 
     private val kernelLogObserver =
         object : ILogObserver {
@@ -87,6 +92,7 @@ constructor(
                 rebindJob = null
                 rebindAttempts = 0
                 remote = service.unwrap(IRemoteService::class)
+                _bindingState.value = KernelBindingState.CONNECTED
 
                 scope.launch {
                     runCatching { remote?.clash()?.setLogObserver(kernelLogObserver) }
@@ -112,8 +118,9 @@ constructor(
         AppLog.w("SLTE-Kernel", "$reason → 复位绑定状态并进入退避重绑")
         remote = null
         bound = false
+        _bindingState.value = KernelBindingState.RETRYING
         rebindAttempts = 0
-        _connected.value = false
+        _vpnConnected.value = false
         unbindQuietly()
         scheduleRebind()
     }
@@ -133,25 +140,27 @@ constructor(
                 intent: Intent?,
             ) {
                 when (intent?.action) {
-                    Intents.ACTION_CLASH_STARTED -> _connected.value = true
-                    Intents.ACTION_CLASH_STOPPED -> _connected.value = false
+                    Intents.ACTION_CLASH_STARTED -> _vpnConnected.value = true
+                    Intents.ACTION_CLASH_STOPPED -> _vpnConnected.value = false
                     Intents.ACTION_PROFILE_LOADED -> _profileLoaded.value += 1
                 }
             }
         }
 
-    fun bind() {
+    override fun bind() {
         mainScope.launch { bindLocked() }
     }
 
     private fun bindLocked() {
-        if (bound) return
+        if (bound || remote != null) return
+        _bindingState.value = KernelBindingState.CONNECTING
         if (doBind()) {
             bound = true
             rebindAttempts = 0
             registerStatusReceiver()
             syncConnectedState()
         } else {
+            _bindingState.value = KernelBindingState.RETRYING
             scheduleRebind()
         }
     }
@@ -195,19 +204,17 @@ constructor(
                     rebindAttempts++
                     if (doBind()) {
                         bound = true
+                        _bindingState.value = KernelBindingState.CONNECTING
                         registerStatusReceiver()
 
                         return@launch
                     }
                 }
                 if (!bound && remote == null) {
+                    _bindingState.value = KernelBindingState.FAILED
                     AppLog.w("SLTE-Kernel", "rebind 已重试 $MAX_REBIND_ATTEMPTS 次仍失败，等待下次按需 bind()")
                 }
             }
-    }
-
-    private fun ensureBound() {
-        if (!bound) bind()
     }
 
     private fun syncConnectedState() {
@@ -230,30 +237,50 @@ constructor(
                     false
                 }
 
-            if (seq == syncSeq) _connected.value = result
+            if (seq == syncSeq) _vpnConnected.value = result
         }
     }
 
-    fun vpnRequestIntent(): Intent? = VpnService.prepare(context)
+    override fun vpnRequestIntent(): Intent? = VpnService.prepare(context)
 
-    fun startVpn() {
+    override fun startVpn() {
         AppLog.i("SLTE-Kernel", "startVpn: 请求启动 TUN")
         context.startForegroundService(Intent(context, TunService::class.java))
     }
 
-    fun stopVpn() {
+    override fun stopVpn() {
         AppLog.i("SLTE-Kernel", "stopVpn: 请求停止 TUN")
         context.sendBroadcastSelf(Intent(Intents.ACTION_CLASH_REQUEST_STOP))
     }
 
-    internal fun clash(): IClashManager? {
-        ensureBound()
-        return remote?.clash()
+    override fun notifyProfileChanged(uuid: UUID) {
+        context.sendBroadcastSelf(
+            Intent(Intents.ACTION_PROFILE_CHANGED)
+                .putExtra(Intents.EXTRA_UUID, uuid.toString()),
+        )
     }
 
-    internal fun profile(): IProfileManager? {
-        ensureBound()
-        return remote?.profile()
+    override fun notifyOverrideChanged() {
+        context.sendBroadcastSelf(Intent(Intents.ACTION_OVERRIDE_CHANGED))
+    }
+
+    override suspend fun awaitClash(): KernelClash? = awaitRemote()?.clash()?.let(::BinderKernelClash)
+
+    override suspend fun awaitProfile(): KernelProfiles? = awaitRemote()?.profile()?.let(::BinderKernelProfiles)
+
+    private suspend fun awaitRemote(): IRemoteService? {
+        remote?.let { return it }
+
+        if (_bindingState.value == KernelBindingState.DISCONNECTED || _bindingState.value == KernelBindingState.FAILED) {
+            withContext(Dispatchers.Main.immediate) { bindLocked() }
+        }
+
+        val connected =
+            withTimeoutOrNull(BINDER_CONNECT_TIMEOUT_MS) {
+                bindingState.first { it == KernelBindingState.CONNECTED || it == KernelBindingState.FAILED }
+            }
+        if (connected != KernelBindingState.CONNECTED) return null
+        return remote
     }
 
     companion object {
@@ -263,5 +290,7 @@ constructor(
         private const val MAX_REBIND_DELAY_MS = 30_000L
 
         private const val MAX_REBIND_ATTEMPTS = 5
+
+        private const val BINDER_CONNECT_TIMEOUT_MS = 5_000L
     }
 }

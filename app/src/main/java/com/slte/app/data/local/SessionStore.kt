@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.slte.app.data.repository.CachePolicy
 import com.slte.app.domain.model.ServerNode
+import com.slte.app.domain.model.SpecialNodeSnapshot
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.User
 import com.slte.app.kernel.SpeedResultStore
@@ -11,19 +12,9 @@ import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-
-/** 自动选择/故障转移两行最近一次的成员快照：内核离线时垫显示，实时值到达后覆盖。 */
-@Serializable
-data class SpecialNodeSnapshot(
-    val kernelName: String,
-    val displayName: String,
-    val countryCode: String,
-    val delay: Int? = null,
-)
 
 @Singleton
 class SessionStore

@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -197,7 +199,15 @@ fun SlteOptionMenu(
                     shadowElevation = 0.dp,
                     tonalElevation = 0.dp,
                 ) {
-                    Column(modifier = Modifier.padding(vertical = Dimens.gap.xs), content = content)
+                    Column(
+                        modifier =
+                        Modifier
+                            .padding(vertical = Dimens.gap.xs)
+                            // 选项数量由调用方决定（邮箱后缀白名单可能十几个）：
+                            // 卡片高度到上限后必须能滚动，否则超出的选项既看不到也划不到
+                            .verticalScroll(rememberScrollState()),
+                        content = content,
+                    )
                 }
             }
         }

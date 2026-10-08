@@ -6,11 +6,20 @@ import com.slte.app.data.local.SessionStore
 import com.slte.app.data.remote.config.RemoteConfig
 import com.slte.app.data.remote.config.RemoteConfigData
 import com.slte.app.support.FakeAuthApi
+import com.slte.app.utils.AppLog
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
+import okhttp3.MediaType
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
+import okio.BufferedSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -67,6 +76,30 @@ class SubscribeSourceImplTest {
     }
 
     @Test
+    fun `未知长度但有内容的分块订阅响应不记录为空`() = runTest {
+        sessionStore.saveSubscribeUrl("https://api.example.com/sub")
+        authApi.responseBody =
+            object : ResponseBody() {
+                override fun contentType(): MediaType? = null
+
+                override fun contentLength(): Long = -1L
+
+                override fun source(): BufferedSource = Buffer().writeUtf8("proxies: []")
+            }
+        mockkObject(AppLog)
+        every { AppLog.w(any(), any()) } just Runs
+
+        try {
+            assertNotNull(source.fetchSubscribeYaml())
+            verify(exactly = 0) {
+                AppLog.w("SLTE-Subscribe", match { it.contains("订阅响应为空") })
+            }
+        } finally {
+            unmockkObject(AppLog)
+        }
+    }
+
+    @Test
     fun `账号下发的任意https主机都被采用`() = runTest {
         sessionStore.saveSubscribeUrl("https://example.com/sub")
         assertNotNull(source.fetchSubscribeYaml())
@@ -117,10 +150,11 @@ class SubscribeSourceImplTest {
 
     private class CapturingAuthApi : FakeAuthApi() {
         val requestedUrls = mutableListOf<String>()
+        var responseBody: ResponseBody = "proxies: []".toResponseBody()
 
         override suspend fun fetchSubscribeYaml(url: String): ResponseBody? {
             requestedUrls += url
-            return "proxies: []".toResponseBody()
+            return responseBody
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.github.kr328.clash.service.data
 
 import android.content.Context
+import androidx.room.Database as DB
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.github.kr328.clash.common.Global
@@ -8,7 +9,6 @@ import com.github.kr328.clash.service.data.migrations.LEGACY_MIGRATION
 import com.github.kr328.clash.service.data.migrations.MIGRATIONS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.room.Database as DB
 
 @DB(
     version = 2,
@@ -29,13 +29,11 @@ abstract class Database : RoomDatabase() {
         val database: Database
             @Synchronized get() = instance ?: open(Global.application).also { instance = it }
 
-        private fun open(context: Context): Database {
-            return Room.databaseBuilder(
-                context.applicationContext,
-                Database::class.java,
-                "profiles"
-            ).addMigrations(*MIGRATIONS).build()
-        }
+        private fun open(context: Context): Database = Room.databaseBuilder(
+            context.applicationContext,
+            Database::class.java,
+            "profiles",
+        ).addMigrations(*MIGRATIONS).build()
 
         init {
             Global.launch(Dispatchers.IO) {

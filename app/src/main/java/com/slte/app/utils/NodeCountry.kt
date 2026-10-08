@@ -11,7 +11,7 @@ internal fun extractCountryCode(name: String): String {
     return "XX"
 }
 
-private fun foldFullWidth(text: String): String {
+internal fun foldFullWidth(text: String): String {
     if (text.none { it == '\u3000' || it.code in 0xFF01..0xFF5E }) return text
     val builder = StringBuilder(text.length)
     text.forEach { char ->

@@ -1,6 +1,6 @@
 package com.slte.app.ui.screen.invite
 
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,7 +62,7 @@ internal fun WithdrawMethodField(
         }
     val haptic = LocalHapticFeedback.current
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)

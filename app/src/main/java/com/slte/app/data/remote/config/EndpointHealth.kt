@@ -16,8 +16,6 @@ data class EndpointHealth(
 
     val consecutiveFailures: Int = 0,
 
-    val lastSuccessAt: Long = 0L,
-
     val openedAt: Long = 0L,
 
     val backoffMs: Long = 0L,
@@ -59,7 +57,6 @@ object EndpointHealthRules {
         now: Long,
     ): EndpointHealth = EndpointHealth(
         url = health.url,
-        lastSuccessAt = now,
         lastLatencyMs = latencyMs,
     )
 

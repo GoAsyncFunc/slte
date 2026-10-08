@@ -1,10 +1,9 @@
 package com.slte.app.kernel
 
+import com.slte.app.utils.foldFullWidth
+
 internal object NodeNameResolver {
 
-    private const val FULL_WIDTH_FIRST = 0xFF01
-    private const val FULL_WIDTH_LAST = 0xFF5E
-    private const val FULL_WIDTH_OFFSET = 0xFEE0
     private const val MAX_STRIP_PASSES = 4
 
     private val ZERO_WIDTH = Regex("[\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u2064\\uFEFF]")
@@ -27,10 +26,10 @@ internal object NodeNameResolver {
     private val WHITESPACE = Regex("[\\s\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000]+")
 
     fun of(name: String): String {
-        var body = foldWidth(ZERO_WIDTH.replace(name, ""))
+        var body = foldFullWidth(ZERO_WIDTH.replace(name, ""))
         var passes = 0
         while (passes < MAX_STRIP_PASSES) {
-            val next = foldWidth(SYMBOL_DECORATION.replace(stripLeadingDecoration(body), ""))
+            val next = foldFullWidth(SYMBOL_DECORATION.replace(stripLeadingDecoration(body), ""))
             if (next == body) break
             body = next
             passes++
@@ -66,19 +65,5 @@ internal object NodeNameResolver {
             if (next == body) return body
             body = next
         }
-    }
-
-    private fun foldWidth(text: String): String {
-        val builder = StringBuilder(text.length)
-        text.forEach { char ->
-            builder.append(
-                when {
-                    char == '\u3000' -> ' '
-                    char.code in FULL_WIDTH_FIRST..FULL_WIDTH_LAST -> (char.code - FULL_WIDTH_OFFSET).toChar()
-                    else -> char
-                },
-            )
-        }
-        return builder.toString()
     }
 }

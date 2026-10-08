@@ -1,13 +1,9 @@
 package com.slte.app.kernel
 
 import android.content.Context
-import com.github.kr328.clash.core.model.Proxy
-import com.github.kr328.clash.core.model.ProxyGroup
-import com.github.kr328.clash.core.model.ProxySort
-import com.github.kr328.clash.core.model.TunnelState
-import com.github.kr328.clash.service.remote.IClashManager
 import com.slte.app.data.local.InMemoryPreferences
 import com.slte.app.support.MainDispatcherRule
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -25,7 +21,7 @@ class SelectNodeTest {
     private val prefs = InMemoryPreferences()
     private val context = mockk<Context>(relaxed = true)
     private val manager = mockk<KernelManager>(relaxed = true)
-    private val clash = mockk<IClashManager>(relaxed = true)
+    private val clash = mockk<KernelClash>(relaxed = true)
     private val config = mockk<KernelConfig>(relaxed = true)
     private val store = mockk<SpeedResultStore>(relaxed = true)
     private val geoIp = mockk<GeoIpResolver>(relaxed = true)
@@ -33,26 +29,19 @@ class SelectNodeTest {
 
     private val group = "节点选择"
 
-    private var members: List<Proxy> = emptyList()
+    private var members: List<KernelProxySnapshot> = emptyList()
     private var selected: String = ""
 
-    private fun node(name: String) = Proxy(
-        name = name,
-        title = name,
-        subtitle = "vless",
-        type = "Vless",
-        delay = 100,
-        isGroup = false,
-    )
+    private fun node(name: String) = KernelProxySnapshot(name = name, isGroup = false, delay = 100, measured = true)
 
     private fun kernelProxy(): KernelProxy {
         every { context.getSharedPreferences(any(), any()) } returns prefs
         every { context.packageName } returns "com.slte.app"
-        every { manager.clash() } returns clash
-        every { clash.queryTunnelState() } returns TunnelState(TunnelState.Mode.Rule)
+        coEvery { manager.awaitClash() } returns clash
+        every { clash.queryTunnelMode() } returns KernelTunnelMode.RULE
         every { clash.queryProxyGroupNames(any()) } returns listOf(group)
-        every { clash.queryProxyGroup(group, ProxySort.Default) } answers {
-            ProxyGroup(type = "Selector", proxies = members, now = selected)
+        every { clash.queryProxyGroup(group, KernelProxySort.DEFAULT) } answers {
+            KernelProxyGroupSnapshot(type = "Selector", proxies = members, now = selected)
         }
         every { clash.patchSelector(group, any()) } answers {
             selected = secondArg()
@@ -121,7 +110,7 @@ class SelectNodeTest {
             patched = true
             true
         }
-        every { clash.queryProxyGroup(group, ProxySort.Default) } answers {
+        every { clash.queryProxyGroup(group, KernelProxySort.DEFAULT) } answers {
             val now =
                 if (patched && !staleOnce) {
                     staleOnce = true
@@ -129,7 +118,7 @@ class SelectNodeTest {
                 } else {
                     selected
                 }
-            ProxyGroup(type = "Selector", proxies = members, now = now)
+            KernelProxyGroupSnapshot(type = "Selector", proxies = members, now = now)
         }
 
         assertTrue(kernel.selectNode("[ss]日本01"))

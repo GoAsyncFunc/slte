@@ -4,8 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.repository.OrderRepository
 import com.slte.app.domain.model.OrderInfo
+import com.slte.app.domain.repository.OrderRepository
 import com.slte.app.ui.ContentPhase
 import com.slte.app.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel

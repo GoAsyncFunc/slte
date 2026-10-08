@@ -20,8 +20,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import com.slte.app.data.remote.api.dto.OrderInfoDto
-import com.slte.app.data.repository.InviteRepository
-import com.slte.app.data.repository.OrderRepository
+import com.slte.app.data.repository.InviteRepositoryImpl
+import com.slte.app.data.repository.OrderRepositoryImpl
 import com.slte.app.domain.model.InviteCodeInfo
 import com.slte.app.domain.model.InviteInfo
 import com.slte.app.domain.model.InviteStat
@@ -132,7 +132,7 @@ class SlteAccessibilitySemanticsTest {
                     expiredAt = 1_800_000_000L,
                 ),
             )
-        val viewModel = OrdersViewModel(OrderRepository(api))
+        val viewModel = OrdersViewModel(OrderRepositoryImpl(api))
         viewModel.enterAndRefresh()
         composeRule.setContent {
             SlteTheme(darkTheme = false) {
@@ -154,7 +154,7 @@ class SlteAccessibilitySemanticsTest {
             )
         api.commissionRecords = emptyList()
         api.withdrawMethods = listOf("USDT")
-        val viewModel = InviteViewModel(InviteRepository(api))
+        val viewModel = InviteViewModel(InviteRepositoryImpl(api))
         viewModel.enterAndRefresh()
         composeRule.setContent {
             SlteTheme(darkTheme = false) {

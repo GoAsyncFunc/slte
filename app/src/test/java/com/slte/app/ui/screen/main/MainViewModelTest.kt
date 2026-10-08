@@ -1,7 +1,7 @@
 package com.slte.app.ui.screen.main
 
 import com.slte.app.R
-import com.slte.app.data.remote.FallbackDns
+import com.slte.app.domain.repository.DnsCache
 import com.slte.app.kernel.KernelConfig
 import com.slte.app.kernel.KernelManager
 import com.slte.app.kernel.KernelProxy
@@ -12,8 +12,10 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,7 +29,7 @@ class MainViewModelTest {
     private val kernelManager = mockk<KernelManager>(relaxed = true)
     private val kernelProxy = mockk<KernelProxy>(relaxed = true)
     private val kernelConfig = mockk<KernelConfig>(relaxed = true)
-    private val fallbackDns = mockk<FallbackDns>(relaxed = true)
+    private val dnsCache = mockk<DnsCache>(relaxed = true)
     private val subscriptionUpdater = mockk<SubscriptionUpdater>(relaxed = true)
     private val dataWriter = mockk<DashboardDataWriter>(relaxed = true)
 
@@ -36,13 +38,13 @@ class MainViewModelTest {
         connected: Boolean = false,
     ): MainViewModel {
         kernelProxy.stubKernelBridge()
-        every { kernelManager.connected } returns MutableStateFlow(connected)
+        every { kernelManager.vpnConnected } returns MutableStateFlow(connected)
         every { kernelManager.profileLoaded } returns MutableStateFlow(0)
         every { dataWriter.applyCached(any()) } answers {
             firstArg<MutableStateFlow<DashboardData>>().value =
                 DashboardData(hasPlan = hasPlan, isConnected = connected)
         }
-        return MainViewModel(mainRule.dispatcher, kernelManager, kernelProxy, kernelConfig, fallbackDns, subscriptionUpdater, dataWriter)
+        return MainViewModel(mainRule.dispatcher, kernelManager, kernelProxy, kernelConfig, dnsCache, subscriptionUpdater, dataWriter)
     }
 
     @Test
@@ -124,7 +126,7 @@ class MainViewModelTest {
     fun `内核连接状态同步到首页并清空 DNS 缓存`() = runTest(mainRule.dispatcher) {
         kernelProxy.stubKernelBridge()
         val connected = MutableStateFlow(false)
-        every { kernelManager.connected } returns connected
+        every { kernelManager.vpnConnected } returns connected
         every { kernelManager.profileLoaded } returns MutableStateFlow(0)
         val vm =
             MainViewModel(
@@ -132,7 +134,7 @@ class MainViewModelTest {
                 kernelManager,
                 kernelProxy,
                 kernelConfig,
-                fallbackDns,
+                dnsCache,
                 subscriptionUpdater,
                 dataWriter,
             )
@@ -141,7 +143,57 @@ class MainViewModelTest {
         connected.value = true
         advanceUntilIdle()
 
-        verify { fallbackDns.clearCache() }
+        verify { dnsCache.clear() }
         assertTrue(vm.data.value.isConnected)
+    }
+
+    @Test
+    fun `取消订阅更新会真正取消进行中的协程`() = runTest(mainRule.dispatcher) {
+        var cancelled = false
+        coEvery { subscriptionUpdater.updateSubscription(any(), any()) } coAnswers {
+            try {
+                awaitCancellation()
+            } finally {
+                cancelled = true
+            }
+        }
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.updateSubscription()
+        runCurrent()
+        vm.cancelUpdating()
+        advanceUntilIdle()
+
+        assertTrue("只清 isUpdating 是假取消：协程还在跑，之后仍会照自己的结果改写界面", cancelled)
+        assertEquals(false, vm.data.value.isUpdating)
+    }
+
+    @Test
+    fun `重复触发订阅更新时旧的一次被取消`() = runTest(mainRule.dispatcher) {
+        var firstCancelled = false
+        var started = 0
+        coEvery { subscriptionUpdater.updateSubscription(any(), any()) } coAnswers {
+            started++
+            if (started == 1) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    firstCancelled = true
+                }
+            }
+        }
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.updateSubscription()
+        runCurrent()
+        vm.updateSubscription()
+        advanceUntilIdle()
+
+        assertEquals("同一时间只应有一个订阅更新在跑", 2, started)
+        assertTrue("新一次更新开始前必须先取消旧的", firstCancelled)
     }
 }

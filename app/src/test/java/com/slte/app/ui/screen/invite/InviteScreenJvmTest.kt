@@ -4,7 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.slte.app.data.repository.InviteRepository
+import com.slte.app.data.repository.InviteRepositoryImpl
 import com.slte.app.domain.model.InviteCodeInfo
 import com.slte.app.domain.model.InviteInfo
 import com.slte.app.domain.model.InviteStat
@@ -24,7 +24,7 @@ class InviteScreenJvmTest {
     val composeRule = createComposeRule()
 
     private val api = FakeAuthApi()
-    private val viewModel = InviteViewModel(InviteRepository(api))
+    private val viewModel = InviteViewModel(InviteRepositoryImpl(api))
 
     private fun stubPage() {
         api.inviteInfo =

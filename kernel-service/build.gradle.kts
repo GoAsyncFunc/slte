@@ -6,6 +6,13 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.ktlint)
+}
+
+ktlint {
+    version.set("1.5.0")
+    android.set(true)
+    ignoreFailures.set(false)
 }
 
 // 与 app 模块共用 app/gradle.properties 配置源（环境变量优先），此处仅取通知栏两项
@@ -15,9 +22,7 @@ val slteProps = Properties().apply {
     }
 }
 
-fun slteValue(name: String): String? =
-    System.getenv(name)?.takeIf { it.isNotBlank() }
-        ?: slteProps.getProperty(name)?.trim()?.takeIf { it.isNotBlank() }
+fun slteValue(name: String): String? = System.getenv(name)?.takeIf { it.isNotBlank() } ?: slteProps.getProperty(name)?.trim()?.takeIf { it.isNotBlank() }
 
 val slteNotificationTitle = slteValue("SLTE_NOTIFICATION_TITLE") ?: ""
 val slteNotificationTraffic = slteValue("SLTE_NOTIFICATION_TRAFFIC") ?: "true"

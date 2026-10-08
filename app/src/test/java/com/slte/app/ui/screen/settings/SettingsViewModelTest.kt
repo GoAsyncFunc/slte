@@ -1,11 +1,12 @@
 package com.slte.app.ui.screen.settings
 
 import com.slte.app.R
-import com.slte.app.data.local.LocaleStore
-import com.slte.app.data.local.ThemePreference
-import com.slte.app.data.repository.AuthRepository
-import com.slte.app.data.repository.SubscribeRepository
+import com.slte.app.domain.model.PasswordChangeOutcome
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.AuthRepository
+import com.slte.app.domain.repository.LocaleRepository
+import com.slte.app.domain.repository.SubscribeRepository
+import com.slte.app.domain.repository.ThemeRepository
 import com.slte.app.kernel.KernelProxy
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.ui.component.SubmitTip
@@ -30,8 +31,8 @@ class SettingsViewModelTest {
     private val authRepository = mockk<AuthRepository>(relaxed = true)
     private val subscribeRepository = mockk<SubscribeRepository>(relaxed = true)
     private val kernelProxy = mockk<KernelProxy>(relaxed = true)
-    private val themePreference = mockk<ThemePreference>(relaxed = true)
-    private val localeStore = mockk<LocaleStore>(relaxed = true)
+    private val themePreference = mockk<ThemeRepository>(relaxed = true)
+    private val localeStore = mockk<LocaleRepository>(relaxed = true)
 
     private fun viewModel(): SettingsViewModel {
         every { themePreference.dark } returns MutableStateFlow(false)
@@ -125,7 +126,7 @@ class SettingsViewModelTest {
     @Test
     fun `修改密码：成功后关闭弹窗并提示成功`() = runTest(mainRule.dispatcher) {
         coEvery { subscribeRepository.fetchUserInfo(force = true) } returns Result.success(user())
-        coEvery { authRepository.changePassword(any(), any()) } returns Result.success(Unit)
+        coEvery { authRepository.changePassword(any(), any()) } returns Result.success(PasswordChangeOutcome.SESSION_RESTORED)
         val vm = viewModel()
         advanceUntilIdle()
 

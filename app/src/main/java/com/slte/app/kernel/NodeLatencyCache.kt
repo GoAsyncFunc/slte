@@ -1,9 +1,5 @@
 package com.slte.app.kernel
 
-import com.github.kr328.clash.core.model.ProxySort
-import com.github.kr328.clash.core.model.UrlTestResult
-import com.github.kr328.clash.service.remote.IClashManager
-
 /**
  * 节点延迟的读取与缓存。
  *
@@ -17,12 +13,12 @@ internal data class NodeDelaySnapshot(
     val measured: Boolean,
 )
 
-internal fun KernelProxy.queryAllGroupDelays(clash: IClashManager): Map<String, NodeDelaySnapshot> = clash
+internal fun KernelProxy.queryAllGroupDelays(clash: KernelClash): Map<String, NodeDelaySnapshot> = clash
     .queryProxyGroupNames(excludeNotSelectable = false)
     .asSequence()
     .filter { it != "GLOBAL" }
     .flatMap { group ->
-        clash.queryProxyGroup(group, ProxySort.Delay).proxies.asSequence()
+        clash.queryProxyGroup(group, KernelProxySort.DELAY).proxies.asSequence()
     }.filter { !it.isGroup && it.name != "DIRECT" && it.name != "REJECT" }
     .fold(mutableMapOf()) { acc, proxy ->
         val delay = normalizeDelay(proxy.delay)
@@ -41,13 +37,13 @@ fun KernelProxy.saveOfflineNodes(names: Set<String>) = speedResultStore.saveOffl
 
 /**
  * 内核对单个节点跑一次真实测速并分类失败原因。
- * 返回 [UrlTestResult.KIND_OFFLINE] / [UrlTestResult.KIND_TIMEOUT]，null = 存活或内核不可用。
+ * 返回内核分类后的失败原因；null 表示存活或内核不可用。
  */
 suspend fun KernelProxy.urlTestFailureKind(
     name: String,
     timeoutMs: Int,
-): String? = safe(null, "urlTest") {
-    manager.clash()?.urlTest(name, timeoutMs)?.kind?.takeIf { it != UrlTestResult.KIND_ALIVE }
+): KernelUrlTestFailure? = safe(null, "urlTest") {
+    manager.awaitClash()?.urlTestFailureKind(name, timeoutMs)
 }
 
 /** 订阅更新后延迟会变，缓存直接失效，避免界面先显示上一份订阅的旧延迟。 */

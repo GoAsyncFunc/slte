@@ -168,7 +168,7 @@ constructor(
                 val step = loaded.toPaymentStep(orderResult.tradeNo)
                 _step.value = step
                 // 轮询跟随支付状态本身启动，不再依赖某个页面恰好可见
-                if (step is PurchaseStep.OrderPayment) startPolling(step.tradeNo)
+                startPolling(step.tradeNo)
             }
         }
     }

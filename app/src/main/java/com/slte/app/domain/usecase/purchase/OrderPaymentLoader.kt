@@ -1,9 +1,9 @@
 package com.slte.app.domain.usecase.purchase
 
-import com.slte.app.data.repository.OrderRepository
 import com.slte.app.domain.model.OrderInfo
 import com.slte.app.domain.model.OrderStatus
 import com.slte.app.domain.model.PaymentMethod
+import com.slte.app.domain.repository.OrderRepository
 import com.slte.app.utils.ErrorMessages
 import javax.inject.Inject
 

@@ -3,7 +3,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +29,6 @@ fun WithdrawSheet(
     onRetryMethods: () -> Unit,
     onConfirm: (String, String) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedMethod by remember { mutableStateOf("") }
     var account by remember { mutableStateOf("") }
     val haptic = LocalHapticFeedback.current

@@ -20,9 +20,7 @@ data class UrlTestResult(
         Parcelizer.encodeToParcel(serializer(), parcel, this)
     }
 
-    override fun describeContents(): Int {
-        return 0
-    }
+    override fun describeContents(): Int = 0
 
     companion object CREATOR : Parcelable.Creator<UrlTestResult> {
         /** 节点存活（delay 为实测毫秒） */
@@ -34,12 +32,8 @@ data class UrlTestResult(
         /** 后端已不存在（域名解析失败/连接被拒/路由不可达） */
         const val KIND_OFFLINE = "offline"
 
-        override fun createFromParcel(parcel: Parcel): UrlTestResult {
-            return Parcelizer.decodeFromParcel(serializer(), parcel)
-        }
+        override fun createFromParcel(parcel: Parcel): UrlTestResult = Parcelizer.decodeFromParcel(serializer(), parcel)
 
-        override fun newArray(size: Int): Array<UrlTestResult?> {
-            return arrayOfNulls(size)
-        }
+        override fun newArray(size: Int): Array<UrlTestResult?> = arrayOfNulls(size)
     }
 }

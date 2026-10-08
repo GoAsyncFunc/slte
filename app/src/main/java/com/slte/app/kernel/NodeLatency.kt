@@ -3,6 +3,7 @@ package com.slte.app.kernel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -16,22 +17,23 @@ data class NodeLatencyUpdate(
     val fresh: Map<String, Int>,
     val all: Map<String, Int>,
     val finished: Boolean,
-) {
-    val isEmpty: Boolean
-        get() = fresh.isEmpty() && all.isEmpty()
-}
+)
 
 /**
  * 节点测速流：哪个节点先出结果就先推哪一批，不等所有节点测完。
  *
  * 首页与服务器页共用这一条流——服务器页把 [NodeLatencyUpdate.fresh] 立刻写进列表，
  * 首页只需要它驱动内核健康检查并把结果写进缓存；每批结果都会落盘，进程被杀也能保住。
+ *
+ * 整个流跑在 IO 线程（[flowOn]）：`healthCheckAll`/`queryProxyGroup` 都是阻塞的跨进程
+ * binder 调用，且内核服务运行在独立进程；每 400ms 轮询一次、最长 45 秒，
+ * 再加每批结果的 JSON 编码与加密偏好写盘，放在主线程会直接卡界面甚至 ANR。
  */
 fun KernelProxy.nodeLatencyStream(
     pollIntervalMs: Long = LATENCY_POLL_INTERVAL_MS,
     maxWaitMs: Long = LATENCY_MAX_WAIT_MS,
 ): Flow<NodeLatencyUpdate> = flow {
-    val clash = manager.clash()
+    val clash = manager.awaitClash()
     if (clash == null) {
         emit(NodeLatencyUpdate(emptyMap(), emptyMap(), finished = true))
         return@flow
@@ -70,7 +72,7 @@ fun KernelProxy.nodeLatencyStream(
         }
     }
     emit(NodeLatencyUpdate(emptyMap(), known.toMap(), finished = true))
-}
+}.flowOn(faultReporter.ioDispatcher)
 
 /** 服务器页测速时的轮询间隔：够快能看出"谁先出结果"，又不至于刷爆内核 IPC。 */
 const val LATENCY_POLL_INTERVAL_MS = 400L

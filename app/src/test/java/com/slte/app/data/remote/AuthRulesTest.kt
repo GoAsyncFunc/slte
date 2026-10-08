@@ -94,6 +94,6 @@ class AuthRulesTest {
 
         val notAllowedHost = AuthRules.decide("tok", false, false, 401, false, isAuthPath = true)
         assertFalse(notAllowedHost.attachToken)
-        assertTrue(notAllowedHost.clearSession)
+        assertFalse(notAllowedHost.clearSession)
     }
 }

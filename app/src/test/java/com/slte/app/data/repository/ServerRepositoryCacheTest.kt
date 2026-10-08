@@ -18,7 +18,7 @@ class ServerRepositoryCacheTest {
     private val prefs = InMemoryPreferences()
     private val sessionStore = SessionStore(prefs)
     private val authApi = mockk<AuthApi>()
-    private val repository = ServerRepository(authApi, sessionStore)
+    private val repository = ServerRepositoryImpl(authApi, sessionStore)
 
     private val nodes =
         listOf(

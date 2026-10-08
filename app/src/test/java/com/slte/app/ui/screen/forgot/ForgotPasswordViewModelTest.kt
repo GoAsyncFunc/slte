@@ -1,9 +1,9 @@
 package com.slte.app.ui.screen.forgot
 
 import com.slte.app.R
-import com.slte.app.data.repository.AuthRepository
 import com.slte.app.domain.model.EmailCodePurpose
 import com.slte.app.domain.model.SessionState
+import com.slte.app.domain.repository.AuthRepository
 import com.slte.app.support.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -38,6 +38,21 @@ class ForgotPasswordViewModelTest {
 
         val state = vm.uiState.value as ForgotPasswordUiState.Error
         assertEquals(R.string.error_email_required, state.messageRes)
+        coVerify(exactly = 0) { authRepository.sendEmailCode(any(), any()) }
+    }
+
+    @Test
+    fun `邮箱格式明显不对时提示格式而不是发送失败`() = runTest(mainRule.dispatcher) {
+        val vm = viewModel()
+        vm.onEmailChange("abc")
+
+        vm.sendVerificationCode()
+        advanceUntilIdle()
+
+        assertEquals(
+            R.string.error_email_invalid,
+            (vm.uiState.value as ForgotPasswordUiState.Error).messageRes,
+        )
         coVerify(exactly = 0) { authRepository.sendEmailCode(any(), any()) }
     }
 

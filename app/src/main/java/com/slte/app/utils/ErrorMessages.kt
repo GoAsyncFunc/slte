@@ -1,42 +1,42 @@
 package com.slte.app.utils
 
 import com.slte.app.R
-import com.slte.app.data.remote.ApiException
+import com.slte.app.domain.model.LocalizedError
 
 object ErrorMessages {
 
     fun forLogin(e: Throwable?): Int = when (e) {
-        is ApiException -> e.stringResId ?: mapLoginError(e.message)
+        is LocalizedError -> e.stringResId ?: mapLoginError(e.message.orEmpty())
         else -> R.string.error_network
     }
 
     fun forRegister(e: Throwable?): Int = when (e) {
-        is ApiException -> e.stringResId ?: mapRegisterError(e.message)
+        is LocalizedError -> e.stringResId ?: mapRegisterError(e.message.orEmpty())
         else -> R.string.error_network
     }
 
     fun forForgot(e: Throwable?): Int = when (e) {
-        is ApiException -> e.stringResId ?: mapForgotError(e.message)
+        is LocalizedError -> e.stringResId ?: mapForgotError(e.message.orEmpty())
         else -> R.string.error_network
     }
 
     fun forSendCode(e: Throwable?): Int = when (e) {
-        is ApiException -> e.stringResId ?: mapSendCodeError(e.message)
+        is LocalizedError -> e.stringResId ?: mapSendCodeError(e.message.orEmpty())
         else -> R.string.error_network
     }
 
     fun forOrder(e: Throwable?): Int = when (e) {
-        is ApiException -> e.stringResId ?: mapOrderError(e.message)
+        is LocalizedError -> e.stringResId ?: mapOrderError(e.message.orEmpty())
         else -> R.string.error_order_failed
     }
 
     fun forSubscribe(e: Throwable?): Int = when (e) {
-        is ApiException -> e.stringResId ?: mapSubscribeError(e.message)
+        is LocalizedError -> e.stringResId ?: mapSubscribeError(e.message.orEmpty())
         else -> R.string.error_network
     }
 
     fun forServer(e: Throwable?): Int = when (e) {
-        is ApiException -> e.stringResId ?: mapServerError(e.message)
+        is LocalizedError -> e.stringResId ?: mapServerError(e.message.orEmpty())
         else -> R.string.error_server_load
     }
 

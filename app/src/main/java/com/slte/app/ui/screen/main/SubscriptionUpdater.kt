@@ -1,12 +1,12 @@
 package com.slte.app.ui.screen.main
 
 import com.slte.app.R
-import com.slte.app.data.repository.OrderRepository
-import com.slte.app.data.repository.ServerRepository
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.isOrderActivated
+import com.slte.app.domain.repository.OrderRepository
+import com.slte.app.domain.repository.ServerRepository
+import com.slte.app.domain.repository.SubscribeRepository
+import com.slte.app.kernel.KernelBridge
 import com.slte.app.kernel.KernelConfig
-import com.slte.app.kernel.KernelManager
 import com.slte.app.kernel.KernelProxy
 import com.slte.app.kernel.ProfileUpdateResult
 import com.slte.app.kernel.clearSpeedResults
@@ -34,7 +34,7 @@ constructor(
     private val kernelConfig: KernelConfig,
     private val serverRepository: ServerRepository,
     private val kernelProxy: KernelProxy,
-    private val kernelManager: KernelManager,
+    private val kernelManager: KernelBridge,
     private val orderRepository: OrderRepository,
     private val dataWriter: DashboardDataWriter,
 ) {
@@ -53,33 +53,39 @@ constructor(
         try {
             if (!data.value.hasPlan) return
             data.update { it.copy(isUpdating = true) }
-            subscribeRepository.fetchSubscribeInfo(force = true).fold(
-                onSuccess = {
-                    val kernelResult = updateProfileWithFreshLink()
-                    val kernelOk = kernelResult != ProfileUpdateResult.FAILED
-                    if (kernelOk) {
-                        serverRepository.invalidateCache()
-                        dataWriter.loadServers(scope, data)
-
-                        scope.launch { autoSpeedTestAfterUpdate(configChanged = true) }
-                    }
-                    dataWriter.applySubscribeInfo(
-                        data,
-                        it,
-                        errorMessageRes =
+            try {
+                subscribeRepository.fetchSubscribeInfo(force = true).fold(
+                    onSuccess = {
+                        val kernelResult = updateProfileWithFreshLink()
+                        val kernelOk = kernelResult != ProfileUpdateResult.FAILED
                         if (kernelOk) {
-                            R.string.dashboard_refresh_done
-                        } else {
-                            R.string.api_error_subscribe_info
-                        },
-                    )
-                },
-                onFailure = { e ->
-                    val resId =
-                        ErrorMessages.forSubscribe(e)
-                    data.update { it.copy(isUpdating = false, errorMessageRes = resId) }
-                },
-            )
+                            serverRepository.invalidateCache()
+                            dataWriter.loadServers(scope, data)
+
+                            scope.launch { autoSpeedTestAfterUpdate(configChanged = true) }
+                        }
+                        dataWriter.applySubscribeInfo(
+                            data,
+                            it,
+                            errorMessageRes =
+                            if (kernelOk) {
+                                R.string.dashboard_refresh_done
+                            } else {
+                                R.string.api_error_subscribe_info
+                            },
+                        )
+                    },
+                    onFailure = { e ->
+                        val resId =
+                            ErrorMessages.forSubscribe(e)
+                        data.update { it.copy(isUpdating = false, errorMessageRes = resId) }
+                    },
+                )
+            } finally {
+                // 协程被取消时 runApi 会重抛 CancellationException，onSuccess/onFailure 都不执行，
+                // 这里兜底复位，避免"更新中"遮罩永久留在界面上。
+                data.update { it.copy(isUpdating = false) }
+            }
         } finally {
             updateMutex.unlock()
         }
@@ -216,7 +222,7 @@ constructor(
      * @param configChanged 配置被改写时，上一份订阅的延迟不再可信，先清缓存。
      */
     private suspend fun autoSpeedTestAfterUpdate(configChanged: Boolean) {
-        if (configChanged && kernelManager.connected.value) {
+        if (configChanged && kernelManager.vpnConnected.value) {
             val before = kernelManager.profileLoaded.value
             withTimeoutOrNull(SPEED_TEST_WAIT_MS) {
                 kernelManager.profileLoaded.first { it > before }

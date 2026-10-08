@@ -1,17 +1,17 @@
 package com.slte.app.ui.screen.server
 
-import com.github.kr328.clash.core.model.Proxy
-import com.github.kr328.clash.core.model.ProxyGroup
-import com.github.kr328.clash.core.model.ProxySort
-import com.github.kr328.clash.core.model.TunnelState
-import com.github.kr328.clash.service.remote.IClashManager
 import com.slte.app.R
-import com.slte.app.data.repository.ServerRepository
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.ServerNode
 import com.slte.app.domain.model.ServerType
+import com.slte.app.domain.repository.ServerRepository
+import com.slte.app.domain.repository.SubscribeRepository
+import com.slte.app.kernel.KernelClash
 import com.slte.app.kernel.KernelManager
 import com.slte.app.kernel.KernelProxy
+import com.slte.app.kernel.KernelProxyGroupSnapshot
+import com.slte.app.kernel.KernelProxySnapshot
+import com.slte.app.kernel.KernelProxySort
+import com.slte.app.kernel.KernelTunnelMode
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.support.stubKernelBridge
 import io.mockk.coEvery
@@ -37,14 +37,7 @@ class ServerViewModelTest {
 
     private var kernelNow = ""
 
-    private fun kernelNode(name: String) = Proxy(
-        name = name,
-        title = name,
-        subtitle = "vless",
-        type = "Vless",
-        delay = 100,
-        isGroup = false,
-    )
+    private fun kernelNode(name: String) = KernelProxySnapshot(name = name, isGroup = false, delay = 100, measured = true)
 
     private fun viewModel(): ServerViewModel {
         kernelProxy.stubKernelBridge()
@@ -52,16 +45,16 @@ class ServerViewModelTest {
         return ServerViewModel(serverRepository, subscribeRepository, kernelProxy)
     }
 
-    private fun stubKernelNodes(vararg names: String): IClashManager {
+    private fun stubKernelNodes(vararg names: String): KernelClash {
         kernelNow = names.firstOrNull().orEmpty()
-        val clash = mockk<IClashManager>(relaxed = true)
+        val clash = mockk<KernelClash>(relaxed = true)
         val manager = mockk<KernelManager>(relaxed = true)
         every { kernelProxy.manager } returns manager
-        every { manager.clash() } returns clash
-        every { clash.queryTunnelState() } returns TunnelState(TunnelState.Mode.Rule)
+        coEvery { manager.awaitClash() } returns clash
+        every { clash.queryTunnelMode() } returns KernelTunnelMode.RULE
         every { clash.queryProxyGroupNames(any()) } returns listOf(kernelGroup)
-        every { clash.queryProxyGroup(kernelGroup, ProxySort.Default) } answers {
-            ProxyGroup(type = "Selector", proxies = names.map(::kernelNode), now = kernelNow)
+        every { clash.queryProxyGroup(kernelGroup, KernelProxySort.DEFAULT) } answers {
+            KernelProxyGroupSnapshot(type = "Selector", proxies = names.map(::kernelNode), now = kernelNow)
         }
         every { clash.patchSelector(kernelGroup, any()) } answers {
             kernelNow = secondArg()

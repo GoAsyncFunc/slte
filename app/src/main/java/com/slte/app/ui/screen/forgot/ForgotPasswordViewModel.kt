@@ -3,9 +3,10 @@ package com.slte.app.ui.screen.forgot
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.repository.AuthRepository
 import com.slte.app.domain.model.EmailCodePurpose
+import com.slte.app.domain.repository.AuthRepository
 import com.slte.app.domain.usecase.CountdownUseCase
+import com.slte.app.utils.EmailInput
 import com.slte.app.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -105,8 +106,9 @@ constructor(
     fun sendVerificationCode() {
         if (isLoadingOrResetting || isCountingDown) return
         val f = currentForm()
-        if (f.email.isBlank()) {
-            _uiState.value = ForgotPasswordUiState.Error(f, R.string.error_email_required)
+        val emailError = EmailInput.errorRes(f.email)
+        if (emailError != null) {
+            _uiState.value = ForgotPasswordUiState.Error(f, emailError)
             return
         }
 
@@ -143,8 +145,9 @@ constructor(
     fun resetPassword() {
         if (isLoadingOrResetting) return
         val f = currentForm()
-        if (f.email.isBlank()) {
-            _uiState.value = ForgotPasswordUiState.Error(f, R.string.error_email_required)
+        val emailError = EmailInput.errorRes(f.email)
+        if (emailError != null) {
+            _uiState.value = ForgotPasswordUiState.Error(f, emailError)
             return
         }
         if (f.verificationCode.isBlank()) {

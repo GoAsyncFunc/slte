@@ -3,10 +3,11 @@ package com.slte.app.ui.screen.register
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.repository.AuthRepository
 import com.slte.app.domain.model.EmailCodePurpose
 import com.slte.app.domain.model.EmailWhitelist
+import com.slte.app.domain.repository.AuthRepository
 import com.slte.app.domain.usecase.CountdownUseCase
+import com.slte.app.utils.EmailInput
 import com.slte.app.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -15,9 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-
-/** 取 `@` 前面的部分；把整段邮箱粘进来时也能正确回填。 */
-private fun localPartOf(email: String): String = email.substringBeforeLast('@', email).trim()
 
 /** 白名单启用时邮箱 = 本地部分 + 选中的后缀；未启用时按用户原样输入。 */
 private fun composeEmail(
@@ -114,7 +112,7 @@ constructor(
             }
         _uiState.value =
             RegisterUiState.Form(
-                email = composeEmail(localPartOf(f.email), suffix, emailWhitelist),
+                email = composeEmail(EmailInput.localPart(f.email), suffix, emailWhitelist),
                 password = f.password,
                 verificationCode = f.verificationCode,
                 inviteCode = f.inviteCode,
@@ -139,7 +137,7 @@ constructor(
     /** 白名单启用时输入框只收 `@` 前面的部分，后缀由 [onEmailSuffixChange] 选择。 */
     fun onEmailChange(input: String) = updateForm { form ->
         if (form.emailWhitelist.isEnabled) {
-            form.copy(email = composeEmail(localPartOf(input), form.emailSuffix, form.emailWhitelist))
+            form.copy(email = composeEmail(EmailInput.localPart(input), form.emailSuffix, form.emailWhitelist))
         } else {
             form.copy(email = input)
         }
@@ -150,7 +148,7 @@ constructor(
         if (suffix in form.emailWhitelist.suffixes) {
             form.copy(
                 emailSuffix = suffix,
-                email = composeEmail(localPartOf(form.email), suffix, form.emailWhitelist),
+                email = composeEmail(EmailInput.localPart(form.email), suffix, form.emailWhitelist),
             )
         } else {
             form
@@ -181,8 +179,9 @@ constructor(
     fun sendVerificationCode() {
         if (isLoadingOrRegistering || isCountingDown) return
         val f = currentForm()
-        if (f.email.isBlank()) {
-            _uiState.value = RegisterUiState.Error(f, R.string.error_email_required)
+        val emailError = EmailInput.errorRes(f.email)
+        if (emailError != null) {
+            _uiState.value = RegisterUiState.Error(f, emailError)
             return
         }
         _uiState.value = RegisterUiState.SendingCode(f)
@@ -218,8 +217,9 @@ constructor(
     fun register() {
         if (isLoadingOrRegistering) return
         val f = currentForm()
-        if (f.email.isBlank()) {
-            _uiState.value = RegisterUiState.Error(f, R.string.error_email_required)
+        val emailError = EmailInput.errorRes(f.email)
+        if (emailError != null) {
+            _uiState.value = RegisterUiState.Error(f, emailError)
             return
         }
         if (f.password.isBlank()) {

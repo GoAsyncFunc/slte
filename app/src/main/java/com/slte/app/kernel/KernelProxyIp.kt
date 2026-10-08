@@ -18,7 +18,7 @@ suspend fun KernelProxy.fetchPublicIp(): IpGeoInfo? = safe(null, "fetchPublicIp"
             v4.await() to v6.await()
         }
     val ip = ipv4 ?: ipv6 ?: return@safe null
-    IpGeoInfo(ip = ip, ipv6 = ipv6, countryCode = geoIpResolver.countryCode(ip))
+    IpGeoInfo(ip = ip, countryCode = geoIpResolver.countryCode(ip))
 }
 
 internal fun KernelProxy.queryIp(

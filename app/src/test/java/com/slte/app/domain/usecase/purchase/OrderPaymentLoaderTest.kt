@@ -2,7 +2,7 @@ package com.slte.app.domain.usecase.purchase
 
 import com.slte.app.data.remote.api.dto.OrderInfoDto
 import com.slte.app.data.remote.api.dto.PaymentMethodDto
-import com.slte.app.data.repository.OrderRepository
+import com.slte.app.data.repository.OrderRepositoryImpl
 import com.slte.app.support.FakeAuthApi
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -11,7 +11,7 @@ import org.junit.Test
 
 class OrderPaymentLoaderTest {
     private val api = FakeAuthApi()
-    private val loader = OrderPaymentLoader(OrderRepository(api))
+    private val loader = OrderPaymentLoader(OrderRepositoryImpl(api))
 
     @Test
     fun `待支付订单返回详情与支付方式`() {

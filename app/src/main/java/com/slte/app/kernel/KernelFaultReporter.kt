@@ -21,7 +21,11 @@ data class KernelFault(
 class KernelFaultReporter
 @Inject
 constructor(
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    /**
+     * 内核侧统一的 IO 线程：`guard` 用它跑阻塞的内核 IPC，
+     * 流式流程（如测速）也用同一个 dispatcher 做 flowOn，保证与 `safe()` 口径一致。
+     */
+    @IoDispatcher internal val ioDispatcher: CoroutineDispatcher,
 ) {
     private val _faults = MutableSharedFlow<KernelFault>(extraBufferCapacity = FAULT_BUFFER)
 

@@ -4,10 +4,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import com.slte.app.R
 import com.slte.app.ui.component.SlteButton
@@ -21,9 +19,6 @@ internal fun LogoutConfirmSheet(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val haptic = LocalHapticFeedback.current
-
     SlteSheet(
         title = stringResource(R.string.profile_logout),
         subtitle = stringResource(R.string.logout_confirm_message),

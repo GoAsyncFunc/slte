@@ -1,8 +1,8 @@
 package com.slte.app.ui.screen.notice
 
 import com.slte.app.R
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.Notice
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.ui.ContentPhase
 import io.mockk.coEvery

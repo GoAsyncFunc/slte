@@ -15,10 +15,10 @@ import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.util.trafficDownload
 import com.github.kr328.clash.core.util.trafficUpload
 import com.github.kr328.clash.service.R
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.selects.select
-import java.util.concurrent.TimeUnit
 
 class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
     private val builder = NotificationCompat.Builder(service, StaticNotificationModule.CHANNEL_ID)
@@ -35,8 +35,8 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
                 R.id.nf_clash_status,
                 Intent().setComponent(Components.MAIN_ACTIVITY)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-                pendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
-            )
+                pendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT),
+            ),
         )
 
     private val notificationManager = NotificationManagerCompat.from(service)
@@ -54,14 +54,16 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
             .setContentText(
                 service.getString(
                     R.string.clash_notification_content,
-                    "$uploading/s", "$downloading/s"
-                )
+                    "$uploading/s",
+                    "$downloading/s",
+                ),
             )
             .setSubText(
                 service.getString(
                     R.string.clash_notification_content,
-                    uploaded, downloaded
-                )
+                    uploaded,
+                    downloaded,
+                ),
             )
             .build()
 

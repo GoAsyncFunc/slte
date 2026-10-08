@@ -1,7 +1,7 @@
 package com.slte.app.ui.screen.plans
 
 import com.slte.app.data.remote.api.dto.PlanInfoDto
-import com.slte.app.data.repository.OrderRepository
+import com.slte.app.data.repository.OrderRepositoryImpl
 import com.slte.app.support.FakeAuthApi
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.ui.ContentPhase
@@ -17,7 +17,7 @@ class PlansViewModelTest {
     val mainRule = MainDispatcherRule()
 
     private val api = FakeAuthApi()
-    private val repository = OrderRepository(api)
+    private val repository = OrderRepositoryImpl(api)
 
     private fun plan(
         id: Int,

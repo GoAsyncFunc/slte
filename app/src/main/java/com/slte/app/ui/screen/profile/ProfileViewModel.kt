@@ -2,11 +2,10 @@ package com.slte.app.ui.screen.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.slte.app.data.local.SessionManager
-import com.slte.app.data.repository.AuthRepository
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.isPlanValid
+import com.slte.app.domain.repository.AuthRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.domain.usecase.DaysUntilExpiryUseCase
 import com.slte.app.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,7 +37,6 @@ class ProfileViewModel
 @Inject
 constructor(
     private val subscribeRepository: SubscribeRepository,
-    private val sessionManager: SessionManager,
     private val authRepository: AuthRepository,
     private val expiryUseCase: DaysUntilExpiryUseCase,
 ) : ViewModel() {
@@ -56,7 +54,7 @@ constructor(
         val cachedSubscribe = subscribeRepository.subscribeInfo.value
         val email =
             cachedUser?.email
-                ?: (sessionManager.sessionState.value as? com.slte.app.domain.model.SessionState.LoggedIn)?.user?.email
+                ?: (authRepository.sessionState.value as? com.slte.app.domain.model.SessionState.LoggedIn)?.user?.email
                 ?: ""
         if (cachedUser != null || cachedSubscribe != null) {
             _data.update {
@@ -80,6 +78,10 @@ constructor(
         loadProfile()
     }
 
+    fun clearError() {
+        _errorMessageRes.value = null
+    }
+
     fun logout() {
         authRepository.logout()
     }
@@ -89,28 +91,35 @@ constructor(
         loading = true
         _errorMessageRes.value = null
         viewModelScope.launch {
-            if (_data.value.subscribeInfo == null) {
-                _data.update { it.copy(isLoading = true) }
-            }
-            val userResult = async { subscribeRepository.fetchUserInfo(force = force) }
-            val subscribeResult = async { subscribeRepository.fetchSubscribeInfo(force = force) }
+            try {
+                if (_data.value.subscribeInfo == null) {
+                    _data.update { it.copy(isLoading = true) }
+                }
+                val userResult = async { subscribeRepository.fetchUserInfo(force = force) }
+                val subscribeResult = async { subscribeRepository.fetchSubscribeInfo(force = force) }
 
-            userResult.await().fold(
-                onSuccess = { user ->
-                    _data.update { it.copy(email = user.email, balance = user.balance) }
-                },
-                onFailure = { },
-            )
-            subscribeResult.await().fold(
-                onSuccess = { applySubscribeInfo(it) },
-                onFailure = { throwable ->
+                userResult.await().fold(
+                    onSuccess = { user ->
+                        _data.update { it.copy(email = user.email, balance = user.balance) }
+                    },
+                    onFailure = { },
+                )
+                subscribeResult.await().fold(
+                    onSuccess = { applySubscribeInfo(it) },
+                    onFailure = { throwable ->
+                        _data.update { it.copy(isLoading = false) }
+                        if (_data.value.subscribeInfo == null) {
+                            _errorMessageRes.value = ErrorMessages.forSubscribe(throwable)
+                        }
+                    },
+                )
+            } finally {
+                // 协程被取消时也会走到这里，避免 loading 永久为 true 让后续刷新被忽略
+                loading = false
+                if (_data.value.subscribeInfo == null && _data.value.isLoading) {
                     _data.update { it.copy(isLoading = false) }
-                    if (_data.value.subscribeInfo == null) {
-                        _errorMessageRes.value = ErrorMessages.forSubscribe(throwable)
-                    }
-                },
-            )
-            loading = false
+                }
+            }
         }
     }
 

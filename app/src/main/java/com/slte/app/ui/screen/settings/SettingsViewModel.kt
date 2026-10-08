@@ -3,10 +3,11 @@ package com.slte.app.ui.screen.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.local.LocaleStore
-import com.slte.app.data.local.ThemePreference
-import com.slte.app.data.repository.AuthRepository
-import com.slte.app.data.repository.SubscribeRepository
+import com.slte.app.domain.model.PasswordChangeOutcome
+import com.slte.app.domain.repository.AuthRepository
+import com.slte.app.domain.repository.LocaleRepository
+import com.slte.app.domain.repository.SubscribeRepository
+import com.slte.app.domain.repository.ThemeRepository
 import com.slte.app.kernel.KernelProxy
 import com.slte.app.ui.component.SubmitTip
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -55,14 +56,14 @@ constructor(
     private val authRepository: AuthRepository,
     private val subscribeRepository: SubscribeRepository,
     private val kernelProxy: KernelProxy,
-    private val themePreference: ThemePreference,
-    private val localeStore: LocaleStore,
+    private val themeRepository: ThemeRepository,
+    private val localeRepository: LocaleRepository,
 ) : ViewModel() {
     private val _data =
         MutableStateFlow(
             SettingsData(
-                darkModeEnabled = themePreference.dark.value,
-                locale = localeStore.locale.value,
+                darkModeEnabled = themeRepository.dark.value,
+                locale = localeRepository.locale.value,
             ),
         )
     val data: StateFlow<SettingsData> = _data.asStateFlow()
@@ -79,12 +80,12 @@ constructor(
     }
 
     fun setDarkMode(enabled: Boolean) {
-        themePreference.setDark(enabled)
+        themeRepository.setDark(enabled)
         _data.value = _data.value.copy(darkModeEnabled = enabled)
     }
 
     fun setLocale(locale: Locale?) {
-        localeStore.setLocale(locale)
+        localeRepository.setLocale(locale)
         _data.value = _data.value.copy(locale = locale)
     }
 
@@ -211,9 +212,13 @@ constructor(
         viewModelScope.launch {
             authRepository
                 .changePassword(form.oldPassword, form.newPassword)
-                .onSuccess {
+                .onSuccess { outcome ->
                     _changePasswordState.value = ChangePasswordState.Closed
-                    _tip.value = SubmitTip(messageRes = R.string.settings_change_pwd_success)
+                    val message = when (outcome) {
+                        PasswordChangeOutcome.SESSION_RESTORED -> R.string.settings_change_pwd_success
+                        PasswordChangeOutcome.SIGN_IN_REQUIRED -> R.string.settings_change_pwd_sign_in_required
+                    }
+                    _tip.value = SubmitTip(messageRes = message)
                 }.onFailure {
                     val editing = _changePasswordState.value as? ChangePasswordState.Editing
                     if (editing != null) {
