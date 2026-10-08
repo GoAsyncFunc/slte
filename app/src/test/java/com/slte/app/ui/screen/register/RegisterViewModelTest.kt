@@ -1,10 +1,11 @@
 package com.slte.app.ui.screen.register
 
 import com.slte.app.R
-import com.slte.app.data.repository.AuthRepository
 import com.slte.app.domain.model.EmailCodePurpose
+import com.slte.app.domain.model.EmailWhitelist
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.AuthRepository
 import com.slte.app.domain.usecase.CountdownUseCase
 import com.slte.app.support.MainDispatcherRule
 import io.mockk.coEvery
@@ -40,6 +41,41 @@ class RegisterViewModelTest {
 
         assertEquals(
             R.string.error_email_required,
+            (vm.uiState.value as RegisterUiState.Error).messageRes,
+        )
+        coVerify(exactly = 0) { authRepository.sendEmailCode(any(), any()) }
+    }
+
+    @Test
+    fun `白名单下只选了后缀没填邮箱名时不发验证码`() = runTest(mainRule.dispatcher) {
+        val vm = viewModel()
+        vm.initConfig(
+            emailVerifyEnabled = true,
+            inviteForceEnabled = false,
+            emailWhitelist = EmailWhitelist(listOf("gmail.com", "outlook.com")),
+        )
+
+        vm.sendVerificationCode()
+        advanceUntilIdle()
+
+        assertEquals(
+            "拼出来的 @gmail.com 不能当成填了邮箱",
+            R.string.error_email_required,
+            (vm.uiState.value as RegisterUiState.Error).messageRes,
+        )
+        coVerify(exactly = 0) { authRepository.sendEmailCode(any(), any()) }
+    }
+
+    @Test
+    fun `邮箱格式明显不对时提示格式而不是发送失败`() = runTest(mainRule.dispatcher) {
+        val vm = viewModel()
+        vm.onEmailChange("abc")
+
+        vm.sendVerificationCode()
+        advanceUntilIdle()
+
+        assertEquals(
+            R.string.error_email_invalid,
             (vm.uiState.value as RegisterUiState.Error).messageRes,
         )
         coVerify(exactly = 0) { authRepository.sendEmailCode(any(), any()) }

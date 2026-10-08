@@ -36,7 +36,7 @@ class XiaoV2bDtoTest {
                 u = 10L,
                 d = 20L,
                 resetDay = 5,
-                plan = XiaoV2bPlanData(name = "基础套餐"),
+                plan = XiaoV2bPlanSummary(name = "基础套餐"),
             )
         val dto = data.toDomainSubscribeInfo()
         assertEquals(3, dto.planId)

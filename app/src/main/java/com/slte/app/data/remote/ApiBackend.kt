@@ -14,3 +14,13 @@ data class ApiBackend(
     val baseUrl: String,
     val apiPrefix: String = ApiPaths.PREFIX,
 )
+
+/** Supported API panel families. Configuration strings are resolved at the boundary. */
+internal enum class ApiBackendType(val configValue: String) {
+    V2BOARD("xiaov2b"),
+    XBOARD("xboard"), ;
+
+    companion object {
+        fun fromConfig(value: String): ApiBackendType? = entries.firstOrNull { it.configValue == value.trim().lowercase() }
+    }
+}

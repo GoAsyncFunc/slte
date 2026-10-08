@@ -1,12 +1,12 @@
 package com.slte.app.ui.screen.main
 
 import com.slte.app.R
-import com.slte.app.data.repository.OrderRepository
-import com.slte.app.data.repository.ServerRepository
-import com.slte.app.data.repository.SubscribeRepository
+import com.slte.app.data.repository.OrderRepositoryImpl
 import com.slte.app.domain.model.OrderInfo
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.ServerRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.domain.usecase.DaysUntilExpiryUseCase
 import com.slte.app.kernel.KernelConfig
 import com.slte.app.kernel.KernelManager
@@ -47,7 +47,7 @@ class SubscriptionUpdaterTest {
     private val serverRepository = mockk<ServerRepository>(relaxed = true)
     private val kernelProxy = mockk<KernelProxy>(relaxed = true)
     private val kernelManager = mockk<KernelManager>(relaxed = true)
-    private val orderRepository = mockk<OrderRepository>(relaxed = true)
+    private val orderRepository = mockk<OrderRepositoryImpl>(relaxed = true)
     private val expiryUseCase = mockk<DaysUntilExpiryUseCase>(relaxed = true)
 
     private val dataWriter = DashboardDataWriter(subscribeRepository, serverRepository, expiryUseCase)

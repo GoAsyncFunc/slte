@@ -1,11 +1,12 @@
 package com.slte.app.ui.screen.notice
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.Notice
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.ui.ContentPhase
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class NoticeUiState(
     val phase: ContentPhase = ContentPhase.Loading,
     val notices: List<Notice> = emptyList(),
@@ -36,9 +38,19 @@ constructor(
     private val _uiState = MutableStateFlow(NoticeUiState())
     val uiState: StateFlow<NoticeUiState> = _uiState.asStateFlow()
 
+    private var loadedOnce = false
+
     fun enterAndRefresh() {
+        loadedOnce = true
         _uiState.update { it.copy(isEntering = true) }
         loadNotices()
+    }
+
+    /** 进程重建恢复到本页时的兜底首拉：正常进入由 enterAndRefresh 负责，这里只在从未加载过时补一次。 */
+    fun ensureLoaded() {
+        if (loadedOnce) return
+        loadedOnce = true
+        enterAndRefresh()
     }
 
     fun loadNotices() {

@@ -1,6 +1,6 @@
 package com.slte.app
 
-import com.slte.app.ui.screen.plans.computeCouponDiscount
+import com.slte.app.domain.usecase.purchase.computeCouponDiscount
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

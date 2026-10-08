@@ -3,8 +3,8 @@ package com.slte.app.ui.screen.giftcard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.remote.ApiException
-import com.slte.app.data.repository.GiftCardRepository
+import com.slte.app.domain.model.LocalizedError
+import com.slte.app.domain.repository.GiftCardRepository
 import com.slte.app.ui.component.SubmitTip
 import com.slte.app.utils.ApiErrors
 import com.slte.app.utils.ErrorMessages
@@ -88,7 +88,7 @@ constructor(
     }
 
     private fun Throwable.toTip(): SubmitTip {
-        val api = this as? ApiException
+        val api = this as? LocalizedError
         if (api?.stringResId != null) return SubmitTip(messageRes = api.stringResId)
         val mapped = ErrorMessages.giftCardMessageRes(message)
         return when {

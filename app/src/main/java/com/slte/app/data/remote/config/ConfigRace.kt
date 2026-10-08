@@ -12,21 +12,16 @@ internal data class FetchedConfig(
     val notModified: Boolean = false,
 )
 
-internal data class RaceResult(
-    val chosen: FetchedConfig?,
-)
-
 internal object ConfigRace {
     suspend fun race(
         urls: List<String>,
         fetch: suspend (String) -> FetchedConfig?,
-    ): RaceResult {
-        if (urls.isEmpty()) return RaceResult(null)
+    ): FetchedConfig? {
+        if (urls.isEmpty()) return null
         return coroutineScope {
             val results = urls.map { url -> async { url to fetch(url) } }.awaitAll()
             val valid = results.mapNotNull { (url, cfg) -> cfg?.copy(url = url) }
-            val chosen = ConfigValidation.pickBest(valid)
-            RaceResult(chosen = chosen)
+            ConfigValidation.pickBest(valid)
         }
     }
 }

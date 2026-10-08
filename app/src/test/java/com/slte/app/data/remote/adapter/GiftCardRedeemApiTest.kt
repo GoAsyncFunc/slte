@@ -13,7 +13,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -46,16 +46,29 @@ class GiftCardRedeemApiTest {
     }
 
     @Test
-    fun `Xboard 兑换使用 code 字段且 data 非空视为成功`() = runTest {
+    fun `Xboard 兑换使用 code 字段且 data 为 true 视为成功`() = runTest {
         val userApi = mockk<XboardUserRetrofit>()
         val request = slot<XboardGiftCardRedeemRequest>()
         coEvery { userApi.redeemGiftCard(capture(request)) } returns
-            XboardResponse(data = JsonObject(emptyMap()), message = "操作成功")
+            XboardResponse(data = JsonPrimitive(true), message = "操作成功")
         val api = XboardAuthApi(mockk(relaxed = true), userApi, mockk(relaxed = true))
 
         api.redeemGiftCard("SLTE2026")
 
         assertEquals("SLTE2026", request.captured.code)
+    }
+
+    @Test
+    fun `Xboard 兑换 data 为 false 时同样视为失败`() = runTest {
+        val userApi = mockk<XboardUserRetrofit>()
+        coEvery { userApi.redeemGiftCard(any()) } returns
+            XboardResponse(data = JsonPrimitive(false), message = "兑换码已被使用")
+        val api = XboardAuthApi(mockk(relaxed = true), userApi, mockk(relaxed = true))
+
+        val error = runCatching { api.redeemGiftCard("SLTE2026") }.exceptionOrNull()
+
+        assertTrue(error is ApiException)
+        assertEquals("兑换码已被使用", error?.message)
     }
 
     @Test

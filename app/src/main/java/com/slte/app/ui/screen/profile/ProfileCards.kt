@@ -1,7 +1,8 @@
 package com.slte.app.ui.screen.profile
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,22 +13,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.slte.app.R
-import com.slte.app.ui.component.ErrorState
-import com.slte.app.ui.component.LottieLoadingIcon
 import com.slte.app.ui.component.SlteCard
-import com.slte.app.ui.component.SlteRowCard
+import com.slte.app.ui.component.SlteGroupDivider
+import com.slte.app.ui.component.SlteRow
+import com.slte.app.ui.component.rememberSinkScale
 import com.slte.app.ui.theme.SlteIcons
-import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
 
@@ -44,11 +47,7 @@ internal fun UserInfoCard(
                 icon = SlteIcons.Email,
                 text = "${stringResource(R.string.profile_email_label)} ${email.ifBlank { stringResource(R.string.profile_not_logged_in) }}",
             )
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = Dimens.gap.lg),
-                thickness = Dimens.dividerThickness,
-                color = MaterialTheme.colorScheme.outlineVariant,
-            )
+            SlteGroupDivider()
             InfoRow(
                 icon = SlteIcons.Balance,
                 text =
@@ -90,48 +89,11 @@ internal fun InfoRow(
 }
 
 @Composable
-internal fun ErrorCard(
-    messageRes: Int,
-    onRetry: () -> Unit,
-) {
-    SlteCard(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        ErrorState(
-            message = stringResource(messageRes),
-            onRetry = onRetry,
-            modifier =
-            Modifier.padding(
-                horizontal = Dimens.gap.lg,
-                vertical = Dimens.gap.lg,
-            ),
-        )
-    }
-}
-
-@Composable
-internal fun LoadingCard() {
-    SlteCard(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Box(
-            modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = Dimens.gap.xl),
-            contentAlignment = Alignment.Center,
-        ) {
-            LottieLoadingIcon(modifier = Modifier.size(Dimens.loadingAnimSize))
-        }
-    }
-}
-
-@Composable
-internal fun NavigateCard(
+internal fun NavigateRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     onClick: () -> Unit,
-) = SlteRowCard(
+) = SlteRow(
     icon = icon,
     title = title,
     chevron = true,
@@ -140,10 +102,20 @@ internal fun NavigateCard(
 
 @Composable
 internal fun LogoutCard(onClick: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val sink = rememberSinkScale(interactionSource)
     SlteCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = SlteShapes.medium,
-        onClick = onClick,
+        modifier =
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = sink.value
+                scaleY = sink.value
+            }.clickable(interactionSource = interactionSource, indication = null) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            },
     ) {
         Row(
             modifier =

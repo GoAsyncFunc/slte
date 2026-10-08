@@ -2,7 +2,9 @@ package com.slte.app.data.local
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.slte.app.data.repository.CachePolicy
 import com.slte.app.domain.model.ServerNode
+import com.slte.app.domain.model.SpecialNodeSnapshot
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.User
 import com.slte.app.kernel.SpeedResultStore
@@ -101,13 +103,60 @@ constructor(
         }
     }
 
-    override fun saveSpeedResults(results: Map<String, Int>) {
+    fun saveAutoNodeSnapshot(snapshot: SpecialNodeSnapshot) {
+        prefs.edit { putString(KEY_SPECIAL_AUTO, Json.encodeToString(snapshot)) }
+    }
+
+    fun getAutoNodeSnapshot(): SpecialNodeSnapshot? = readCached(KEY_SPECIAL_AUTO) { Json.decodeFromString<SpecialNodeSnapshot>(it) }
+
+    fun saveFallbackNodeSnapshot(snapshot: SpecialNodeSnapshot) {
+        prefs.edit { putString(KEY_SPECIAL_FALLBACK, Json.encodeToString(snapshot)) }
+    }
+
+    fun getFallbackNodeSnapshot(): SpecialNodeSnapshot? = readCached(KEY_SPECIAL_FALLBACK) { Json.decodeFromString<SpecialNodeSnapshot>(it) }
+
+    fun clearSpecialNodeSnapshots() {
         prefs.edit {
-            putString(KEY_SPEED_RESULTS, Json.encodeToString(results))
+            remove(KEY_SPECIAL_AUTO)
+            remove(KEY_SPECIAL_FALLBACK)
         }
     }
 
-    override fun getSpeedResults(): Map<String, Int>? = readCached(KEY_SPEED_RESULTS) { Json.decodeFromString<Map<String, Int>>(it) }
+    override fun saveSpeedResults(results: Map<String, Int>) {
+        prefs.edit {
+            putString(KEY_SPEED_RESULTS, Json.encodeToString(results))
+            putLong(KEY_SPEED_RESULTS_AT, System.currentTimeMillis())
+        }
+    }
+
+    override fun getSpeedResults(): Map<String, Int>? {
+        val savedAt = prefs.getLong(KEY_SPEED_RESULTS_AT, 0L)
+        if (!CachePolicy.isFresh(savedAt, System.currentTimeMillis(), CachePolicy.LATENCY_TTL_MS)) return null
+        return readCached(KEY_SPEED_RESULTS) { Json.decodeFromString<Map<String, Int>>(it) }
+    }
+
+    override fun clearSpeedResults() {
+        prefs.edit {
+            remove(KEY_SPEED_RESULTS)
+            remove(KEY_SPEED_RESULTS_AT)
+            remove(KEY_OFFLINE_NODES)
+            remove(KEY_OFFLINE_NODES_AT)
+        }
+    }
+
+    /** 探测确认"后端不在了"的节点（内核名），与延迟缓存同生命周期。 */
+    override fun saveOfflineNodes(names: Set<String>) {
+        prefs.edit {
+            putString(KEY_OFFLINE_NODES, Json.encodeToString(names))
+            putLong(KEY_OFFLINE_NODES_AT, System.currentTimeMillis())
+        }
+    }
+
+    override fun getOfflineNodes(): Set<String>? {
+        val savedAt = prefs.getLong(KEY_OFFLINE_NODES_AT, 0L)
+        if (!CachePolicy.isFresh(savedAt, System.currentTimeMillis(), CachePolicy.LATENCY_TTL_MS)) return null
+        return readCached(KEY_OFFLINE_NODES) { Json.decodeFromString<Set<String>>(it) }
+    }
 
     fun clear() {
         prefs.edit {
@@ -121,6 +170,11 @@ constructor(
             remove(KEY_SERVER_NODES)
             remove(KEY_SERVER_NODES_FETCHED_AT)
             remove(KEY_SPEED_RESULTS)
+            remove(KEY_SPEED_RESULTS_AT)
+            remove(KEY_SPECIAL_AUTO)
+            remove(KEY_SPECIAL_FALLBACK)
+            remove(KEY_OFFLINE_NODES)
+            remove(KEY_OFFLINE_NODES_AT)
         }
     }
 
@@ -133,6 +187,11 @@ constructor(
             remove(KEY_SERVER_NODES)
             remove(KEY_SERVER_NODES_FETCHED_AT)
             remove(KEY_SPEED_RESULTS)
+            remove(KEY_SPEED_RESULTS_AT)
+            remove(KEY_SPECIAL_AUTO)
+            remove(KEY_SPECIAL_FALLBACK)
+            remove(KEY_OFFLINE_NODES)
+            remove(KEY_OFFLINE_NODES_AT)
         }
     }
 
@@ -150,5 +209,10 @@ constructor(
         private const val KEY_SERVER_NODES = "server_nodes"
         private const val KEY_SERVER_NODES_FETCHED_AT = "server_nodes_fetched_at"
         private const val KEY_SPEED_RESULTS = "speed_results"
+        private const val KEY_SPEED_RESULTS_AT = "speed_results_at"
+        private const val KEY_SPECIAL_AUTO = "special_node_auto"
+        private const val KEY_SPECIAL_FALLBACK = "special_node_fallback"
+        private const val KEY_OFFLINE_NODES = "offline_nodes"
+        private const val KEY_OFFLINE_NODES_AT = "offline_nodes_at"
     }
 }

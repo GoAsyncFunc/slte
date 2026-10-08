@@ -36,7 +36,9 @@ internal object SanitizerRules {
             "secret",
         )
 
-    val DROPPED_TOP_LEVEL_KEYS = setOf("hosts", "script", "scripting", "web", "listeners", "<<")
+    // geox-url/ntp：订阅不得指定 geo 库下载源与 NTP 服务器（供应链投毒/时间源劫持），
+    // 整块丢弃后由内核默认值接管（process.go patchGeneral 同键兜底）
+    val DROPPED_TOP_LEVEL_KEYS = setOf("hosts", "script", "scripting", "web", "listeners", "geox-url", "ntp", "<<")
 
     val FORCED_OFF_TOP_LEVEL_KEYS = setOf("tun")
 

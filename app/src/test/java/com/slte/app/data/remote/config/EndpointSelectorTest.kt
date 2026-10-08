@@ -75,7 +75,7 @@ class EndpointSelectorTest {
         repeat(3) { selector.recordFailure("https://a.example.com") }
         selector.recordSuccess("https://a.example.com", 50L)
         val state =
-            selector.state.value.endpoints
+            selector.snapshot()
                 .first { it.url == "https://a.example.com" }
         assertEquals(HealthState.HEALTHY, state.state)
         assertEquals(0, state.consecutiveFailures)

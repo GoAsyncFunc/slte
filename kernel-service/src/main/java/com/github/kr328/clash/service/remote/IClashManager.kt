@@ -7,25 +7,23 @@ import com.github.kr328.kaidl.BinderInterface
 @BinderInterface
 interface IClashManager {
     fun queryTunnelState(): TunnelState
-    fun queryTrafficTotal(): Long
     fun coreVersion(): String
     fun queryProxyGroupNames(excludeNotSelectable: Boolean): List<String>
     fun queryProxyGroup(name: String, proxySort: ProxySort): ProxyGroup
-    fun queryConfiguration(): UiConfiguration
-    fun queryProviders(): ProviderList
 
     /** 在后台进程加载当前激活配置（无需启动 VPN，供离线测速等场景使用） */
     suspend fun loadActiveProfile()
 
     fun patchSelector(group: String, name: String): Boolean
 
+    /** 对单个节点跑一次真实测速并分类失败原因（离线/超时）；节点不存在时 kind 返回 timeout */
+    fun urlTest(name: String, timeoutMs: Int): UrlTestResult
+
     suspend fun healthCheck(group: String)
     fun healthCheckAll()
-    suspend fun updateProvider(type: Provider.Type, name: String)
 
     fun queryOverride(slot: Clash.OverrideSlot): ConfigurationOverride
     fun patchOverride(slot: Clash.OverrideSlot, configuration: ConfigurationOverride)
-    fun clearOverride(slot: Clash.OverrideSlot)
 
     /** 查询当前 TUN 堆栈模式（system/gvisor/mixed） */
     fun tunStackMode(): String

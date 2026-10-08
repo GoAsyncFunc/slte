@@ -3,6 +3,7 @@ package com.slte.app.data.local
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import androidx.core.content.edit
+import com.slte.app.domain.repository.ThemeRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,13 +16,13 @@ class ThemePreference
 @Inject
 constructor(
     @ApplicationContext context: Context,
-) {
+) : ThemeRepository {
     private val prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
     private val _dark = MutableStateFlow(prefs.getBoolean(KEY_DARK, false))
-    val dark: StateFlow<Boolean> = _dark.asStateFlow()
+    override val dark: StateFlow<Boolean> = _dark.asStateFlow()
 
-    fun setDark(enabled: Boolean) {
+    override fun setDark(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_DARK, enabled) }
         _dark.value = enabled
     }

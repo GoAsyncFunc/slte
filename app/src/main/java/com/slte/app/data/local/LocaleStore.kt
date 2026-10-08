@@ -3,6 +3,7 @@ package com.slte.app.data.local
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import androidx.core.content.edit
+import com.slte.app.domain.repository.LocaleRepository
 import com.slte.app.utils.LocaleContextWrapper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
@@ -17,14 +18,14 @@ class LocaleStore
 @Inject
 constructor(
     @ApplicationContext context: Context,
-) {
+) : LocaleRepository {
     private val prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
     private val _locale = MutableStateFlow(readTag(context)?.let { Locale.forLanguageTag(it) })
 
-    val locale: StateFlow<Locale?> = _locale.asStateFlow()
+    override val locale: StateFlow<Locale?> = _locale.asStateFlow()
 
-    fun setLocale(locale: Locale?) {
+    override fun setLocale(locale: Locale?) {
         prefs.edit { putString(KEY_LOCALE, locale?.toLanguageTag()) }
         _locale.value = locale
     }

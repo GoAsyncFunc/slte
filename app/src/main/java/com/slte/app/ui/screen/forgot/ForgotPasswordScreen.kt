@@ -170,8 +170,8 @@ fun ForgotPasswordScreen(
                 onClick = viewModel::resetPassword,
                 modifier = Modifier.fillMaxWidth(),
                 style = SlteButtonStyle.Primary,
+                enabled = !isResetting,
                 height = Dimens.size.row,
-                loading = isResetting,
             )
 
             Spacer(modifier = Modifier.height(Dimens.gap.md))

@@ -2,6 +2,7 @@
 agp = "8.9.1"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
+roborazzi = "1.60.0"
 coreKtx = "1.16.0"
 lifecycleRuntime = "2.9.0"
 activityCompose = "1.10.1"
@@ -72,6 +73,8 @@ mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 kaidl = { group = "com.github.kr328.kaidl", name = "kaidl", version.ref = "kaidl" }
 kaidl-runtime = { group = "com.github.kr328.kaidl", name = "kaidl-runtime", version.ref = "kaidl" }
 rikkax-multiprocess = { group = "dev.rikka.rikkax.preference", name = "multiprocess", version.ref = "multiprocess" }
@@ -86,3 +89,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }

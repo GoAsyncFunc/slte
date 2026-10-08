@@ -17,6 +17,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.slte.app.R
 import com.slte.app.ui.component.CircleIconButton
+import com.slte.app.ui.component.SlteGroup
+import com.slte.app.ui.component.SlteGroupDivider
 import com.slte.app.ui.component.SlteScaffold
 import com.slte.app.ui.component.SubmitTipHost
 import com.slte.app.ui.component.UsageCard
@@ -40,7 +42,6 @@ fun ProfileScreen(
     giftCardViewModel: GiftCardRedeemViewModel = hiltViewModel(),
 ) {
     val data by viewModel.data.collectAsStateWithLifecycle()
-    val errorMessageRes by viewModel.errorMessageRes.collectAsStateWithLifecycle()
     val giftCardState by giftCardViewModel.state.collectAsStateWithLifecycle()
     val giftCardTip by giftCardViewModel.tip.collectAsStateWithLifecycle()
     var showLogoutSheet by rememberSaveable { mutableStateOf(false) }
@@ -70,69 +71,60 @@ fun ProfileScreen(
             }
 
             item {
-                val errorRes = errorMessageRes
-                if (data.isLoading) {
-                    LoadingCard()
-                } else if (errorRes != null) {
-                    ErrorCard(
-                        messageRes = errorRes,
-                        onRetry = viewModel::retry,
+                // 与首页同一张卡片、同一套字段：数据没回来时也保持同样大小，不换成加载动画
+                UsageCard(
+                    planName = data.planName,
+                    usedBytes = data.usedBytes,
+                    totalBytes = data.totalBytes,
+                    isValid = data.isValid,
+                    hasPlan = data.hasPlan,
+                    daysUntilExpired = if (data.expiredAt > 0L) data.daysUntilExpired else null,
+                    expiredAtDate = if (data.expiredAt > 0L) FormatUtils.formatExpiryDate(data.expiredAt) else null,
+                    actionText =
+                    stringResource(
+                        if (data.hasPlan) R.string.plan_renew_button else R.string.plan_buy_button,
+                    ),
+                    actionEnabled = true,
+                    onAction = onRenew,
+                )
+            }
+
+            item {
+                SlteGroup {
+                    NavigateRow(
+                        icon = SlteIcons.Orders,
+                        title = stringResource(R.string.profile_orders),
+                        onClick = onOrders,
                     )
-                } else {
-                    UsageCard(
-                        planName = data.planName,
-                        usedBytes = data.usedBytes,
-                        totalBytes = data.totalBytes,
-                        isValid = data.isValid,
-                        hasPlan = data.hasPlan,
-                        daysUntilExpired = if (data.expiredAt > 0L) data.daysUntilExpired else null,
-                        expiredAtDate = if (data.expiredAt > 0L) FormatUtils.formatExpiryDate(data.expiredAt) else null,
-                        actionText =
-                        stringResource(
-                            if (data.hasPlan) R.string.plan_renew_button else R.string.plan_buy_button,
-                        ),
-                        actionEnabled = true,
-                        onAction = onRenew,
+                    SlteGroupDivider()
+                    NavigateRow(
+                        icon = SlteIcons.InviteRow,
+                        title = stringResource(R.string.invite_title),
+                        onClick = onInvite,
+                    )
+                    SlteGroupDivider()
+                    NavigateRow(
+                        icon = SlteIcons.CustomerService,
+                        title = stringResource(R.string.profile_contact),
+                        onClick = onContact,
                     )
                 }
             }
 
             item {
-                NavigateCard(
-                    icon = SlteIcons.Orders,
-                    title = stringResource(R.string.profile_orders),
-                    onClick = onOrders,
-                )
-            }
-
-            item {
-                NavigateCard(
-                    icon = SlteIcons.InviteRow,
-                    title = stringResource(R.string.invite_title),
-                    onClick = onInvite,
-                )
-            }
-
-            item {
-                NavigateCard(
-                    icon = SlteIcons.CustomerService,
-                    title = stringResource(R.string.profile_contact),
-                    onClick = onContact,
-                )
-            }
-            item {
-                NavigateCard(
-                    icon = SlteIcons.Settings,
-                    title = stringResource(R.string.settings_title),
-                    onClick = onSettings,
-                )
-            }
-            item {
-                NavigateCard(
-                    icon = SlteIcons.About,
-                    title = stringResource(R.string.profile_about),
-                    onClick = onAbout,
-                )
+                SlteGroup {
+                    NavigateRow(
+                        icon = SlteIcons.Settings,
+                        title = stringResource(R.string.settings_title),
+                        onClick = onSettings,
+                    )
+                    SlteGroupDivider()
+                    NavigateRow(
+                        icon = SlteIcons.About,
+                        title = stringResource(R.string.profile_about),
+                        onClick = onAbout,
+                    )
+                }
             }
 
             item {

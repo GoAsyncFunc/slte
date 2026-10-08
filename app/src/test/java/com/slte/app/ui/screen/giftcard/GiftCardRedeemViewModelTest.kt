@@ -2,7 +2,7 @@ package com.slte.app.ui.screen.giftcard
 
 import com.slte.app.R
 import com.slte.app.data.remote.ApiException
-import com.slte.app.data.repository.GiftCardRepository
+import com.slte.app.domain.repository.GiftCardRepository
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.ui.component.SubmitTip
 import io.mockk.coEvery

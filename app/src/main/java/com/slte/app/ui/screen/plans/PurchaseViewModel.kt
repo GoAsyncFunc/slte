@@ -5,6 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.slte.app.R
 import com.slte.app.domain.model.CreateOrderResult
 import com.slte.app.domain.model.PlanInfo
+import com.slte.app.domain.usecase.purchase.CheckoutOutcome
+import com.slte.app.domain.usecase.purchase.CouponCheck
+import com.slte.app.domain.usecase.purchase.CouponChecker
+import com.slte.app.domain.usecase.purchase.OrderCreator
+import com.slte.app.domain.usecase.purchase.OrderPaymentLoad
+import com.slte.app.domain.usecase.purchase.OrderPaymentLoader
+import com.slte.app.domain.usecase.purchase.OrderPaymentPoller
+import com.slte.app.domain.usecase.purchase.PaymentCheckout
 import com.slte.app.utils.AppLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -157,7 +165,10 @@ constructor(
             val loaded = paymentLoader.load(orderResult.tradeNo)
             loaded.toToastRes()?.let { _toastRes.value = it }
             if (loaded is OrderPaymentLoad.Ready) {
-                _step.value = loaded.toPaymentStep(orderResult.tradeNo)
+                val step = loaded.toPaymentStep(orderResult.tradeNo)
+                _step.value = step
+                // 轮询跟随支付状态本身启动，不再依赖某个页面恰好可见
+                startPolling(step.tradeNo)
             }
         }
     }
@@ -179,8 +190,12 @@ constructor(
             val outcome = paymentCheckout.checkout(current.tradeNo, methodId)
             outcome.toToastRes()?.let { _toastRes.value = it }
             _step.update { s -> if (s is PurchaseStep.OrderPayment) outcome.nextStep(s) else s }
-            if (outcome is CheckoutOutcome.Completed) {
-                _paymentCompleted.tryEmit(outcome.tradeNo)
+            when (outcome) {
+                is CheckoutOutcome.Completed -> _paymentCompleted.emit(outcome.tradeNo)
+                // 跳浏览器后用户可能长时间停留在外，轮询在后台盯着订单状态，
+                // 完成后走 paymentCompleted 统一收尾（套餐页发起的支付同样覆盖）
+                is CheckoutOutcome.Redirect -> startPolling(current.tradeNo)
+                is CheckoutOutcome.Retry -> Unit
             }
         }
     }
@@ -197,7 +212,19 @@ constructor(
     }
 
     fun startOrderPolling(tradeNo: String) {
-        poller.start(viewModelScope, tradeNo) { completedTradeNo -> _paymentCompleted.tryEmit(completedTradeNo) }
+        startPolling(tradeNo)
+    }
+
+    /** 轮询支付结果；完成事件用挂起 emit 代替 tryEmit，缓冲占满时等待而不是静默丢弃。 */
+    private fun startPolling(tradeNo: String) {
+        poller.start(
+            scope = viewModelScope,
+            tradeNo = tradeNo,
+            onCompleted = { completedTradeNo ->
+                viewModelScope.launch { _paymentCompleted.emit(completedTradeNo) }
+            },
+            onTimeout = { _toastRes.value = R.string.purchase_pay_timeout },
+        )
     }
 
     fun clearToast() {

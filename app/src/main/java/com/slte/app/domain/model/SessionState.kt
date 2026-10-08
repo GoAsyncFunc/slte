@@ -9,3 +9,13 @@ sealed interface SessionState {
         val user: User,
     ) : SessionState
 }
+
+enum class PasswordChangeOutcome {
+    SESSION_RESTORED,
+    SIGN_IN_REQUIRED,
+}
+
+enum class SessionNotice {
+    EXPIRED,
+    PASSWORD_CHANGED_REQUIRES_SIGN_IN,
+}

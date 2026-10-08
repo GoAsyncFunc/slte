@@ -11,6 +11,8 @@ enum class OrderStatus {
 
         fun from(code: Int): OrderStatus = when (code) {
             0 -> PENDING
+            // v2board 系状态：0 待支付、1 开通中、2 已取消、3 已完成、4 已折抵；
+            // 开通中/已完成/已折抵都视为订单已生效
             1, 3, 4 -> COMPLETED
             2 -> CANCELLED
             else -> ABNORMAL

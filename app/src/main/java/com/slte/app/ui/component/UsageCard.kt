@@ -25,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,7 +48,6 @@ fun UsageCard(
     actionEnabled: Boolean = hasPlan,
     onAction: () -> Unit = {},
 ) {
-    val haptic = LocalHapticFeedback.current
     val percent =
         if (totalBytes > 0L) {
             ((usedBytes.toFloat() / totalBytes.toFloat()) * 100).toInt().coerceIn(0, 100)
@@ -209,7 +207,7 @@ private fun UsageBadge(
     Box(
         modifier =
         Modifier
-            .clip(RoundedCornerShape(Dimens.planStatusChipCornerRadius))
+            .clip(RoundedCornerShape(percent = Dimens.planStatusChipCornerPercent))
             .background(bg)
             .padding(horizontal = Dimens.gap.lg, vertical = Dimens.planStatusPaddingV),
     ) {

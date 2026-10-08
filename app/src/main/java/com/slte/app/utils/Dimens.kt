@@ -44,17 +44,18 @@ object Dimens {
     val loadingBoxSize = 76.dp
     val loadingAnimSize = 32.dp
     val loadingTextGap = 5.dp
-    val loadingScrimAlpha = 0.3f
     val loadingBoxElevation = 8.dp
 
     val stateStickerSize = 80.dp
 
-    val switchTrackWidth = 48.dp
+    // 开关（HyperOS 规格）：轨道 49×28dp、滑块 20dp，位移 4→25dp，按住时放大到 1.127
+    val switchTrackWidth = 49.dp
     val switchTrackHeight = 28.dp
-
     val switchTouchHeight = 48.dp
     val switchThumbSize = 20.dp
-    val switchThumbPadding = 4.dp
+    val switchThumbOffOffset = 4.dp
+    val switchThumbOnOffset = 25.dp
+    val switchThumbPressedScale = 1.127f
 
     val flagSize = 40.dp
 
@@ -67,13 +68,11 @@ object Dimens {
     val cardElevation = 0.dp
 
     val planStatusPaddingV = 4.dp
-    val planStatusChipCornerRadius = 50
 
-    val inviteCodeItemBgAlpha = 0.5f
-    val noticeTimeAlpha = 0.75f
-    val paymentMethodDotAlpha = 0.4f
-    val dividerAlpha = 0.5f
-    val disabledAlpha = 0.4f
+    // 套餐状态胶囊：RoundedCornerShape 的 percent 参数（50% = 两端全圆）
+    val planStatusChipCornerPercent = 50
+
+    // 透明度类令牌已迁至 ui/theme/SlteAlpha，动效时长在 ui/theme/SlteMotion
 
     val dashboardScreenPaddingH = gap.lg
     val dashboardScreenPaddingV = 10.dp
@@ -96,10 +95,10 @@ object Dimens {
     val dashboardToggleThumbOffset = 52.dp
     val dashboardToggleThumbPadding = 4.dp
     val dashboardToggleGap = 10.dp
-    val dashboardToggleAnimDurationMs = 350
     val dashboardActionBtnHeight = size.button
 
-    val inviteStatCardPaddingV = 20.dp
+    // 与首页卡片的内边距保持一致（12dp），保证页面节奏统一
+    val inviteStatCardPaddingV = gap.md
     val inviteStickerSize = 100.dp
     val inviteCodeItemHeight = 52.dp
     val inviteCodeItemPaddingH = 16.dp
@@ -109,8 +108,22 @@ object Dimens {
     val sheetPaddingH = gap.xl
     val sheetPaddingV = gap.sm
 
-    val inviteMethodListMaxHeight = 240.dp
-    val popupShadowElevation = 8.dp
+    // 小弹窗：宽度按内容自适应并夹在 200~288dp（HyperOS 规格），行高 56dp，不加投影
+    // 选项文字都不长（语言、后缀、TUN 堆栈），不用做成大卡片
+    val optionMenuMinWidth = 160.dp
+    val optionMenuMaxWidth = 220.dp
+    val optionMenuMaxHeight = 320.dp
+    val optionMenuAnchorGap = 8.dp
+    val optionMenuItemMinHeight = 48.dp
+    val optionMenuItemPaddingH = gap.lg
+    val optionMenuItemCheckSize = 20.dp
+    val optionMenuCheckGap = 12.dp
+
+    // 分组卡片（HyperOS 风格：一组一张卡片，行间 1.5dp 分隔线，两端内缩 20dp）
+    val groupDividerThickness = 1.5.dp
+    val groupDividerInset = 20.dp
+
+    // 圆角统一走 SlteShapes（见 ui/theme/Shape.kt），透明度走 ui/theme/SlteAlpha，这里只留几何
 
     val radioDotSize = 18.dp
     val radioDotInnerSize = 9.dp
@@ -119,10 +132,4 @@ object Dimens {
 
     val noticeTagPaddingH = 8.dp
     val noticeTagSpacing = 6.dp
-    val noticeBodyMaxLines = 2
-}
-
-object VerificationCodeConfig {
-    const val countdownSeconds = 60
-    const val countdownIntervalMs = 1000L
 }

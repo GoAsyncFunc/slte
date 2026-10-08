@@ -32,10 +32,13 @@
     <string name="error_network">請求失敗</string>
     <string name="error_email_send_failed">驗證碼傳送失敗</string>
     <string name="error_email_required">輸入信箱</string>
+    <string name="error_email_invalid">信箱格式不正確</string>
     <string name="error_code_required">輸入驗證碼</string>
     <string name="error_password_required">輸入密碼</string>
     <string name="error_new_password_required">輸入新密碼</string>
     <string name="error_invite_required">邀請碼必填</string>
+    <string name="register_email_local_placeholder">郵箱</string>
+    <string name="register_email_suffix_label">郵箱後綴</string>
 
     <!-- Top bar actions -->
     <string name="topbar_support">客服</string>
@@ -102,6 +105,7 @@
     <string name="server_fallback">故障轉移</string>
     <string name="server_fallback_now">Fallback（%1$s）</string>
     <string name="server_timeout">逾時</string>
+    <string name="server_offline">離線</string>
 
     <!-- Invite -->
     <string name="invite_title">邀請返利</string>
@@ -215,6 +219,7 @@
     <string name="settings_change_pwd_mismatch">新密碼不一致</string>
     <string name="settings_change_pwd_failed">修改失敗</string>
     <string name="settings_change_pwd_success">密碼已修改</string>
+    <string name="settings_change_pwd_sign_in_required">密碼已修改，請使用新密碼重新登入</string>
     <string name="settings_expire_remind">到期提醒</string>
     <string name="settings_traffic_remind">流量提醒</string>
     <string name="settings_remind_save_failed">提醒設定儲存失敗</string>
@@ -263,6 +268,7 @@
     <string name="purchase_payment_method">支付方式</string>
     <string name="purchase_payment_method_empty">暫無支付方式</string>
     <string name="purchase_pay_amount">支付 ¥%s</string>
+    <string name="purchase_pay_timeout">支付結果確認逾時，請稍後到訂單頁查看結果</string>
     <string name="purchase_existing_order_title">有待支付訂單</string>
     <string name="purchase_existing_order_message">您有未完成的訂單</string>
     <string name="purchase_error_title">建立失敗</string>

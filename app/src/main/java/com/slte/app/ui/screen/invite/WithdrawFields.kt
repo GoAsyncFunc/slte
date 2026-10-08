@@ -1,20 +1,15 @@
 package com.slte.app.ui.screen.invite
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,14 +21,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import com.slte.app.R
 import com.slte.app.ui.component.SlteInput
 import com.slte.app.ui.component.SlteInputSize
+import com.slte.app.ui.component.SlteOptionMenu
+import com.slte.app.ui.component.SlteOptionMenuItem
 import com.slte.app.ui.theme.SlteColors
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteShapes
@@ -51,6 +50,7 @@ internal fun WithdrawMethodField(
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var anchorBounds by remember { mutableStateOf<Rect?>(null) }
 
     val enabled = !isLoading && (failed || methods.isNotEmpty())
     val hint =
@@ -62,18 +62,20 @@ internal fun WithdrawMethodField(
         }
     val haptic = LocalHapticFeedback.current
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val anchorWidth = maxWidth
+    Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 if (failed) onRetry() else expanded = true
             },
             enabled = enabled,
-            modifier = Modifier.fillMaxWidth(),
-            shape = SlteShapes.medium,
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(Dimens.dividerThickness, MaterialTheme.colorScheme.outline),
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { anchorBounds = it.boundsInWindow() },
+            shape = SlteShapes.large,
+            // 下拉型字段与弹层内其它字段同一种灰底，不再描边
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ) {
             Row(
@@ -113,49 +115,23 @@ internal fun WithdrawMethodField(
             }
         }
 
-        DropdownMenu(
+        // 与语言切换同款的小弹窗：独立窗口，所以放在底部弹层里也不会被裁切，
+        // 也不会出现"白底弹窗贴白底弹层"看不清的问题（有遮罩分层）
+        SlteOptionMenu(
             expanded = expanded,
+            anchorBounds = anchorBounds,
             onDismissRequest = { expanded = false },
-            modifier =
-            Modifier
-                .width(anchorWidth)
-                .heightIn(max = Dimens.inviteMethodListMaxHeight),
-            shape = SlteShapes.medium,
-            containerColor = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(Dimens.dividerThickness, MaterialTheme.colorScheme.outline),
-            shadowElevation = Dimens.popupShadowElevation,
         ) {
             methods.forEach { method ->
                 val isSelected = method == selected
-                Row(
-                    modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSelect(method)
-                            expanded = false
-                        }.padding(horizontal = Dimens.gap.lg, vertical = Dimens.gap.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = method,
-                        style = SlteType.title,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (isSelected) {
-                        Icon(
-                            imageVector = SlteIcons.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(Dimens.icon.lg),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
+                SlteOptionMenuItem(
+                    label = method,
+                    selected = isSelected,
+                    onClick = {
+                        onSelect(method)
+                        expanded = false
+                    },
+                )
             }
         }
     }
@@ -172,5 +148,6 @@ internal fun ReadOnlyAmountField(cents: Int) {
         readOnly = true,
         enabled = false,
         size = SlteInputSize.Compact,
+        onSheet = true,
     )
 }

@@ -17,9 +17,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.slte.app.R
+import com.slte.app.domain.model.SessionNotice
 import com.slte.app.domain.model.SessionState
 import com.slte.app.ui.component.AnimatedSticker
 import com.slte.app.ui.component.AppLocaleContent
+import com.slte.app.ui.component.rememberToast
 import com.slte.app.utils.Dimens
 import com.slte.app.utils.Stickers
 
@@ -30,28 +32,28 @@ fun SlteApp(
     val sessionState by viewModel.sessionState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val locale by viewModel.locale.collectAsStateWithLifecycle()
+    val toast = rememberToast()
 
     LaunchedEffect(Unit) {
-        viewModel.sessionExpiredEvents.collect {
-            android.widget.Toast
-                .makeText(
-                    context,
-                    context.getString(R.string.session_expired_relogin),
-                    android.widget.Toast.LENGTH_LONG,
-                ).show()
+        viewModel.sessionNotices.collect { notice ->
+            val message = when (notice) {
+                SessionNotice.EXPIRED -> R.string.session_expired_relogin
+                SessionNotice.PASSWORD_CHANGED_REQUIRES_SIGN_IN -> R.string.settings_change_pwd_sign_in_required
+            }
+            toast.showLong(message)
         }
     }
 
     AppLocaleContent(
         locale = locale,
-        localeStore = viewModel.localeStore,
+        localeRepository = viewModel.localeRepository,
     ) {
         when (sessionState) {
             is SessionState.LoggedIn -> {
                 val loggedIn = sessionState as SessionState.LoggedIn
                 LoggedInApp(
                     accountKey = loggedIn.user.subscribeToken,
-                    onSupport = { viewModel.crispManager.openChat(context, loggedIn.user.email) },
+                    onSupport = { viewModel.supportChat.openChat(context, loggedIn.user.email) },
                 )
             }
             is SessionState.LoggedOut -> AuthNavGraph()

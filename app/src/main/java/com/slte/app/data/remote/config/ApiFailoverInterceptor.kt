@@ -4,13 +4,15 @@ import com.slte.app.data.remote.api.ApiHeaders
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import java.io.IOException
+import java.io.InterruptedIOException
+import java.net.SocketTimeoutException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
 
 class ApiFailoverInterceptor(
-    private val config: FailoverConfig,
+    private val config: RemoteConfig,
     private val selector: EndpointSelector,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -53,6 +55,15 @@ class ApiFailoverInterceptor(
                 lastFailureResponse?.close()
                 return attempt
             } catch (e: IOException) {
+                if (isSharedBudgetTimeout(e)) {
+                    // 整个 call 的超时预算（callTimeout）是所有候选共享的：预算耗尽时抛出的
+                    // InterruptedIOException 是"总预算"问题，不是这个候选的问题。
+                    // 记失败会把健康地址逐个误判成故障，阈值一到全部端点熔断（所有 API 调用瞬间失败）；
+                    // 而且预算已耗尽，后面的候选也没有预算可用，继续切换只是空转。
+                    AppLog.w("SLTE-Api", "ApiFailover: call 超时预算用尽，停止切换: ${sanitizeLog(e.message ?: "")}")
+                    lastError = e
+                    break
+                }
                 selector.recordFailure(base)
                 lastError = e
                 if (!retryable) throw e
@@ -66,6 +77,15 @@ class ApiFailoverInterceptor(
     companion object {
 
         const val HEADER_NO_FAILOVER = ApiHeaders.NO_FAILOVER_NAME
+
+        /**
+         * 是否是"call 总超时"而不是"这个候选自身超时"。
+         *
+         * okhttp 的 CallTimeoutException 是 internal，从外面只能靠类型区分：
+         * 连接/读写的超时是 SocketTimeoutException（算候选的失败），
+         * 其余 InterruptedIOException（call 超时、调用被取消）与候选无关。
+         */
+        internal fun isSharedBudgetTimeout(e: IOException): Boolean = e is InterruptedIOException && e !is SocketTimeoutException
     }
 
     private fun rewriteBaseUrl(

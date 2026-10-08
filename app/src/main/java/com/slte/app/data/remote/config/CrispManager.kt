@@ -3,6 +3,7 @@ package com.slte.app.data.remote.config
 import android.content.Context
 import android.content.Intent
 import android.util.Patterns
+import com.slte.app.domain.service.SupportChat
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import im.crisp.client.external.ChatActivity
@@ -15,7 +16,7 @@ import javax.inject.Singleton
 @Singleton
 class CrispManager
 @Inject
-constructor() {
+constructor() : SupportChat {
     private var config: CrispConfig? = null
     private var initialized = false
     private var lastEmail: String? = null
@@ -78,9 +79,9 @@ constructor() {
         nickname?.let { Crisp.setUserNickname(it) }
     }
 
-    fun openChat(
+    override fun openChat(
         context: Context,
-        email: String? = null,
+        email: String?,
     ) {
         if (!initialized) return
 
@@ -97,8 +98,6 @@ constructor() {
             AppLog.w(TAG, "Crisp 登出清理失败（已忽略）: ${sanitizeLog(e.message ?: "Unknown")}")
         }
     }
-
-    fun isEnabled(): Boolean = config?.enabled == true && initialized
 
     private companion object {
         const val TAG = "SLTE-Crisp"

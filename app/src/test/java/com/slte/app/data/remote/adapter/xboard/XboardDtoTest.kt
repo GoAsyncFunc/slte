@@ -1,9 +1,17 @@
 package com.slte.app.data.remote.adapter.xboard
 
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class XboardDtoTest {
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+            coerceInputValues = true
+        }
+
     @Test
     fun `subscribeInfo 透传 subscribe_url`() {
         val data =
@@ -16,8 +24,9 @@ class XboardDtoTest {
 
     @Test
     fun `userInfo 布尔提醒开关转为 0-1`() {
-        val info = XboardUserInfoData(remindExpire = true, remindTraffic = false)
-        val dto = info.toDomainUserInfo()
+        val dto =
+            json.decodeFromString<XboardUserInfoData>("""{"remind_expire":true,"remind_traffic":false}""")
+                .toDomainUserInfo()
         assertEquals(1, dto.remindExpire)
         assertEquals(0, dto.remindTraffic)
     }
@@ -31,14 +40,14 @@ class XboardDtoTest {
 
     @Test
     fun `邀请码布尔状态转为 0-1`() {
-        val code = XboardInviteCodeData(code = "ABC123", status = false)
+        val code = json.decodeFromString<XboardInviteCodeData>("""{"code":"ABC123","status":false}""")
         assertEquals(0, code.toDomain().status)
         assertEquals("ABC123", code.toDomain().code)
     }
 
     @Test
     fun `plan 布尔 show renew 透传`() {
-        val plan = XboardPlanData(name = "p", show = true, renew = false)
+        val plan = json.decodeFromString<XboardPlanData>("""{"name":"p","show":true,"renew":false}""")
         val dto = plan.toDomainPlan()
         assertEquals(true, dto.show)
         assertEquals(false, dto.renew)
@@ -46,7 +55,7 @@ class XboardDtoTest {
 
     @Test
     fun `notice 布尔 show 可解析`() {
-        val notice = XboardNoticeData(title = "标题", content = "正文", show = true)
+        val notice = json.decodeFromString<XboardNoticeData>("""{"title":"标题","content":"正文","show":true}""")
         val domain = notice.toDomain()
         assertEquals("标题", domain.title)
         assertEquals("正文", domain.body)

@@ -2,8 +2,6 @@ package com.slte.app.kernel
 
 import android.content.Context
 import com.github.kr328.clash.common.Global
-import com.github.kr328.clash.service.model.Profile
-import com.github.kr328.clash.service.remote.IProfileManager
 import com.slte.app.BuildConfig
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.support.RobolectricTestApplication
@@ -38,7 +36,7 @@ class KernelConfigProfileProtectionTest {
 
     private val context = mockk<Context>(relaxed = true)
     private val manager = mockk<KernelManager>(relaxed = true)
-    private val profiles = mockk<IProfileManager>(relaxed = true)
+    private val profiles = mockk<KernelProfiles>(relaxed = true)
     private val subscribeSource = mockk<SubscribeSource>(relaxed = true)
     private val remoteConfig = mockk<AppRemoteConfig>(relaxed = true)
     private val reporter = KernelFaultReporter(mainRule.dispatcher)
@@ -90,7 +88,7 @@ class KernelConfigProfileProtectionTest {
 
     private fun config(): KernelConfig {
         every { context.filesDir } returns tmp.root
-        every { manager.profile() } returns profiles
+        coEvery { manager.awaitProfile() } returns profiles
         every { remoteConfig.apiBaseUrl } returns apiBaseUrl
         every { remoteConfig.directDomains } returns listOf("example.com")
         every { subscribeSource.getEmail() } returns email
@@ -100,21 +98,7 @@ class KernelConfigProfileProtectionTest {
     private fun profile(
         uuid: UUID,
         imported: Boolean = true,
-    ) = Profile(
-        uuid = uuid,
-        name = profileNameFor(email),
-        type = Profile.Type.Url,
-        source = subscribeUrl,
-        active = true,
-        interval = 0,
-        upload = 0,
-        download = 0,
-        total = 0,
-        expire = 0,
-        updatedAt = 0,
-        imported = imported,
-        pending = false,
-    )
+    ) = KernelProfile(uuid = uuid, name = profileNameFor(email), source = subscribeUrl, imported = imported)
 
     private fun body(text: String) = text.toResponseBody("application/yaml".toMediaType())
 

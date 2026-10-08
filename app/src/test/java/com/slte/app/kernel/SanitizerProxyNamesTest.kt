@@ -372,4 +372,114 @@ class SanitizerProxyNamesTest {
         assertEquals(selectMembers.size, selectMembers.distinct().size)
         assertEquals(autoMembers.size, autoMembers.distinct().size)
     }
+
+    private val commentedNames =
+        """
+        |proxies:
+        |  - name: jp-01 # 主力
+        |    type: vless
+        |    server: 1.1.1.1
+        |    port: 443
+        |  - name: jp-01 # 备用
+        |    type: vless
+        |    server: 2.2.2.2
+        |    port: 443
+        |proxy-groups:
+        |  - name: 节点选择
+        |    type: select
+        |    proxies:
+        |      - jp-01 # 主力
+        |      - DIRECT
+        |rules:
+        |  - MATCH,节点选择
+        """.trimMargin()
+
+    @Test
+    fun `行尾注释不参与重名判定`() {
+        assertEquals(
+            "同一名字带不同注释也算重名",
+            listOf("jp-01"),
+            SanitizerProxyNames.duplicateNames(commentedNames),
+        )
+        assertFalse("重名配置不能被判定为可加载", SubscriptionSanitizer.isKernelLoadable(commentedNames))
+    }
+
+    @Test
+    fun `带注释的重名节点改名后注释保留且分组补齐新名字`() {
+        val cleaned = SubscriptionSanitizer.sanitize(commentedNames, domains)
+        val names = proxyNames(cleaned)
+        val members = groupMembers(cleaned, "节点选择")
+
+        assertEquals(2, names.size)
+        assertEquals("改名后不得留下重名", names.size, names.distinct().size)
+        assertTrue("注释必须留在行尾，不能被当成名字的一部分", cleaned.contains("# 备用"))
+        assertTrue("注释前的空格不能被吃掉（否则 `#` 会粘进引号）", cleaned.contains("\"jp-01 #2\" # 备用"))
+        assertTrue("改名后的节点要补进分组", members.contains("jp-01 #2"))
+        assertTrue(members.contains("jp-01"))
+        assertEquals(members.size, members.distinct().size)
+        assertTrue(SubscriptionSanitizer.isKernelLoadable(cleaned))
+    }
+
+    private val quotedWithComments =
+        """
+        |proxies:
+        |  - name: "jp-02" # a
+        |    type: vless
+        |    server: 1.1.1.1
+        |    port: 443
+        |  - name: "jp-02" # b
+        |    type: vless
+        |    server: 2.2.2.2
+        |    port: 443
+        |proxy-groups:
+        |  - name: 节点选择
+        |    type: select
+        |    proxies:
+        |      - "jp-02" # a
+        |      - DIRECT
+        |rules:
+        |  - MATCH,节点选择
+        """.trimMargin()
+
+    @Test
+    fun `引号值后面的注释不属于名字`() {
+        assertEquals(
+            "引号值应以配对引号收尾，注释不参与比较",
+            listOf("jp-02"),
+            SanitizerProxyNames.duplicateNames(quotedWithComments),
+        )
+
+        val cleaned = SubscriptionSanitizer.sanitize(quotedWithComments, domains)
+        val names = proxyNames(cleaned)
+        val members = groupMembers(cleaned, "节点选择")
+
+        assertEquals(2, names.size)
+        assertEquals(names.size, names.distinct().size)
+        assertTrue(cleaned.contains("\"jp-02 #2\" # b"))
+        assertTrue(members.contains("jp-02 #2"))
+        assertTrue(SubscriptionSanitizer.isKernelLoadable(cleaned))
+    }
+
+    @Test
+    fun `名字里的井号只要前面没空白就不算注释`() {
+        val tight =
+            """
+            |proxies:
+            |  - name: hk#01
+            |    type: vless
+            |    server: 1.1.1.1
+            |    port: 443
+            |proxy-groups:
+            |  - name: 节点选择
+            |    type: select
+            |    proxies:
+            |      - hk#01
+            |      - DIRECT
+            |rules:
+            |  - MATCH,节点选择
+            """.trimMargin()
+
+        assertEquals(listOf("hk#01"), SanitizerProxyNames.names(tight))
+        assertEquals("紧贴的井号属于名字", 0, SanitizerProxyNames.dedupe(tight.lines().toMutableList()))
+    }
 }

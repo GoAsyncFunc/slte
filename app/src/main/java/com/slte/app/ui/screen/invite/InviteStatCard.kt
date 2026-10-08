@@ -28,6 +28,7 @@ import com.slte.app.domain.model.InviteStat
 import com.slte.app.ui.component.AnimatedSticker
 import com.slte.app.ui.component.SlteCard
 import com.slte.app.ui.component.formatCurrency
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteColors
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
@@ -69,7 +70,7 @@ fun InviteStatCard(stat: InviteStat) {
             Spacer(modifier = Modifier.height(Dimens.gap.lg))
 
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = com.slte.app.utils.Dimens.dividerAlpha),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = SlteAlpha.divider),
                 thickness = Dimens.dividerThickness,
             )
 

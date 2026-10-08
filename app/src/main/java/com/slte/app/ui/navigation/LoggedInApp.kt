@@ -54,6 +54,9 @@ fun LoggedInApp(
     var lastBackPress by remember { mutableLongStateOf(0L) }
     BackHandler {
         if (pageStack.size > 1) {
+            // 返回即放弃进行中的预加载，否则加载完成后仍会把目标页压栈，
+            // 用户会从意外层级进入刚离开的页面
+            preload.cancel()
             pageStack.removeAt(pageStack.lastIndex)
         } else {
             val now = System.currentTimeMillis()
@@ -165,8 +168,8 @@ fun LoggedInApp(
     LoadingOverlay(
         visible = preload.pending != null || mainData.isUpdating,
         onDismiss = {
-            preload.cancel()
-            viewModels.main.cancelUpdating()
+            // 只取消当前真正在进行的那个动作，避免取消订阅更新时连带取消页面预加载（反之亦然）
+            if (preload.pending != null) preload.cancel() else viewModels.main.cancelUpdating()
         },
     )
 

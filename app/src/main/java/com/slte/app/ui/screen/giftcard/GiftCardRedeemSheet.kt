@@ -47,6 +47,7 @@ fun GiftCardRedeemSheet(
             imeAction = ImeAction.Done,
             enabled = !state.submitting,
             size = SlteInputSize.Compact,
+            onSheet = true,
         )
     }
 }

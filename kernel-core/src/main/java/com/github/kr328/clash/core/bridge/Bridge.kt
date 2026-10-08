@@ -5,8 +5,8 @@ import android.os.ParcelFileDescriptor
 import androidx.annotation.Keep
 import com.github.kr328.clash.common.Global
 import com.github.kr328.clash.common.log.Log
-import kotlinx.coroutines.CompletableDeferred
 import java.io.File
+import kotlinx.coroutines.CompletableDeferred
 
 @Keep
 object Bridge {
@@ -28,34 +28,23 @@ object Bridge {
     external fun nativeHealthCheck(completable: CompletableDeferred<Unit>, name: String)
     external fun nativeHealthCheckAll()
     external fun nativePatchSelector(selector: String, name: String): Boolean
+    external fun nativeUrlTest(name: String, timeoutMs: Int): String?
     external fun nativeFetchAndValid(
         completable: FetchCallback,
         path: String,
         url: String,
-        force: Boolean
+        force: Boolean,
     )
 
     external fun nativeLoad(completable: CompletableDeferred<Unit>, path: String)
-    external fun nativeQueryProviders(): String
-    external fun nativeUpdateProvider(
-        completable: CompletableDeferred<Unit>,
-        type: String,
-        name: String
-    )
 
     external fun nativeReadOverride(slot: Int): String
     external fun nativeWriteOverride(slot: Int, content: String)
     external fun nativeClearOverride(slot: Int)
-    external fun nativeQueryConfiguration(): String
     external fun nativeSubscribeLogcat(callback: LogcatInterface)
     external fun nativeCoreVersion(): String
 
     external fun nativeSetAgeSecretKey(key: String?)
-    external fun nativeGenX25519KeyPair(): String?
-    external fun nativeGenHybridKeyPair(): String?
-    external fun nativeVeritySecretKeys(secretKeys: String): Boolean
-    external fun nativeToPublicKeys(secretKeys: String): String?
-    external fun nativeVerityPublicKeys(publicKeys: String): Boolean
 
     private external fun nativeInit(home: String, versionName: String, sdkVersion: Int)
 

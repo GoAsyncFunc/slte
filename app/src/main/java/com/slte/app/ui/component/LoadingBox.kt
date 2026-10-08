@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.slte.app.R
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
@@ -83,7 +84,7 @@ fun LoadingOverlay(
             modifier =
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = Dimens.loadingScrimAlpha))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = SlteAlpha.loadingScrim))
                 .clickable(
                     interactionSource = null,
                     indication = null,

@@ -75,13 +75,13 @@ class SubscribeRepositoryCacheTest {
 
     private val userDto = UserInfoDto(email = "user@example.com", balance = 1234)
 
-    private lateinit var repository: SubscribeRepository
+    private lateinit var repository: SubscribeRepositoryImpl
 
     @Before
     fun setUp() {
         every { sessionManager.sessionState } returns sessionState
         every { sessionManager.logoutEvents } returns logoutEvents
-        repository = SubscribeRepository(authApi, sessionStore, sessionManager)
+        repository = SubscribeRepositoryImpl(authApi, sessionStore, sessionManager)
     }
 
     @Test
@@ -197,7 +197,7 @@ class SubscribeRepositoryCacheTest {
     fun `订阅流以本地缓存为初始值`() = runTest(scheduler) {
         sessionStore.saveSubscribeInfo(localInfo)
 
-        val fresh = SubscribeRepository(authApi, sessionStore, sessionManager)
+        val fresh = SubscribeRepositoryImpl(authApi, sessionStore, sessionManager)
 
         assertEquals(localInfo, fresh.subscribeInfo.value)
     }

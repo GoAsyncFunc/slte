@@ -6,9 +6,9 @@ import android.os.Parcel
 import android.os.Parcelable
 import com.github.kr328.clash.core.util.Parcelizer
 import com.github.kr328.clash.service.util.UUIDSerializer
+import java.util.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import java.util.*
 
 @Serializable
 data class Profile(
@@ -28,24 +28,20 @@ data class Profile(
     val ageSecretKey: String? = null,
 ) : Parcelable {
     enum class Type {
-        File, Url, External
+        File,
+        Url,
+        External,
     }
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
         Parcelizer.encodeToParcel(serializer(), parcel, this)
     }
 
-    override fun describeContents(): Int {
-        return 0
-    }
+    override fun describeContents(): Int = 0
 
     companion object CREATOR : Parcelable.Creator<Profile> {
-        override fun createFromParcel(parcel: Parcel): Profile {
-            return Parcelizer.decodeFromParcel(serializer(), parcel)
-        }
+        override fun createFromParcel(parcel: Parcel): Profile = Parcelizer.decodeFromParcel(serializer(), parcel)
 
-        override fun newArray(size: Int): Array<Profile?> {
-            return arrayOfNulls(size)
-        }
+        override fun newArray(size: Int): Array<Profile?> = arrayOfNulls(size)
     }
 }

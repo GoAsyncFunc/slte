@@ -1,35 +1,17 @@
 package com.slte.app.data.remote.adapter.xboard
 
-import com.slte.app.domain.model.Notice
 import com.slte.app.domain.model.ServerNode
 import com.slte.app.domain.model.ServerType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-@Serializable
-data class XboardNoticeData(
-    val id: Int = 0,
-    val title: String = "",
-    val content: String = "",
-    val tags: List<String>? = null,
-    val show: Boolean = true,
-    @SerialName("img_url")
-    val imgUrl: String? = null,
-    @SerialName("created_at")
-    val createdAt: Long = 0,
-    @SerialName("updated_at")
-    val updatedAt: Long = 0,
-)
-
-fun XboardNoticeData.toDomain() = Notice(
-    id = id,
-    title = title,
-    body = content,
-    tags = tags ?: emptyList(),
-    createdAt = createdAt,
-)
-
+/**
+ * Xboard 的节点列表。
+ *
+ * 两个面板的 `user/server/fetch` 字段结构不同（Xboard 是 NodeResource：只有元信息，
+ * v2board 是原始协议行），这一块不共享。
+ */
 @Serializable
 data class XboardServerData(
     val id: Int = 0,
@@ -42,6 +24,11 @@ data class XboardServerData(
     val tags: List<String>? = null,
     @SerialName("is_online")
     val isOnline: Int = 1,
+
+    // 连接字段：部分 xboard 版本的 server/fetch 不下发，缺省为空；
+    // 节点的真实连接信息以订阅 YAML 为准，这里只影响列表展示
+    val host: String = "",
+    val port: Int = 0,
 ) {
     private fun resolveType(): ServerType = when (type) {
         "shadowsocks" -> ServerType.SHADOWSOCKS
@@ -59,7 +46,7 @@ data class XboardServerData(
         id = id,
         name = name,
         type = resolveType(),
-        host = "",
-        port = 0,
+        host = host,
+        port = port,
     )
 }

@@ -4,17 +4,16 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.remote.FallbackDns
 import com.slte.app.di.IoDispatcher
+import com.slte.app.domain.repository.DnsCache
+import com.slte.app.kernel.KernelBridge
 import com.slte.app.kernel.KernelConfig
-import com.slte.app.kernel.KernelManager
 import com.slte.app.kernel.KernelProxy
 import com.slte.app.kernel.NodeNameResolver
 import com.slte.app.kernel.ensureGlobalSelection
 import com.slte.app.kernel.fetchPublicIp
-import com.slte.app.kernel.runAutoSpeedTest
-import com.slte.app.kernel.serverInfo
-import com.slte.app.kernel.warmUp
+import com.slte.app.kernel.liveSelectionFlow
+import com.slte.app.kernel.refreshSelectionAndMeasure
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.ErrorMessages
 import com.slte.app.utils.sanitizeLog
@@ -22,6 +21,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,17 +35,15 @@ class MainViewModel
 @Inject
 constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val kernelManager: KernelManager,
+    private val kernelManager: KernelBridge,
     private val kernelProxy: KernelProxy,
     private val kernelConfig: KernelConfig,
-    private val fallbackDns: FallbackDns,
+    private val dnsCache: DnsCache,
     private val subscriptionUpdater: SubscriptionUpdater,
     private val dataWriter: DashboardDataWriter,
 ) : ViewModel() {
     private val _data = MutableStateFlow(DashboardData())
     val data: StateFlow<DashboardData> = _data.asStateFlow()
-
-    private var autoTested = false
 
     init {
 
@@ -75,22 +73,46 @@ constructor(
 
     private fun observeKernelState() {
         viewModelScope.launch {
-            kernelManager.connected.collect { connected ->
+            kernelManager.vpnConnected.collect { connected ->
                 _data.update { it.copy(isConnected = connected, isConnecting = false) }
                 if (connected) {
-                    fallbackDns.clearCache()
-                    if (!autoTested) {
-                        autoTested = true
-                        viewModelScope.launch {
-                            kernelProxy.runAutoSpeedTest()
-                            refreshKernelInfo()
-                        }
-                    } else {
-                        refreshKernelInfo()
-                    }
+                    dnsCache.clear()
+                    viewModelScope.launch { startAutoSelectionAndTest() }
+                    refreshKernelInfo()
                 }
             }
         }
+    }
+
+    /**
+     * 节点名与国旗的实时来源：直接跟随内核当前的落点节点。
+     *
+     * 自动选择/故障转移时内核会随健康检查结果自己换节点，这里只是把"它现在用的是哪个"
+     * 实时反映到界面上——不依赖手动测速或更新订阅。
+     *
+     * 由界面在「已连接且首页可见」时调用，离开页面/断开即随协程取消，不在后台常驻轮询。
+     */
+    suspend fun watchLiveSelection() {
+        kernelProxy.liveSelectionFlow().collect { live ->
+            val kernelName = live.node ?: return@collect
+            val display = NodeNameResolver.displayName(kernelName)
+            _data.update { state ->
+                if (state.hasPlan) {
+                    state.copy(serverName = display)
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    /**
+     * 立刻把选择方式交给内核（自动选择/故障转移即时生效），再在后台跑一次测速把延迟写进缓存。
+     *
+     * 测速是流式的：谁先出结果谁先落盘，不会阻塞界面，也不会等所有节点测完才切。
+     */
+    private suspend fun startAutoSelectionAndTest() {
+        kernelProxy.refreshSelectionAndMeasure()
     }
 
     fun refreshKernelInfo() {
@@ -99,12 +121,6 @@ constructor(
                 kernelProxy.ensureGlobalSelection()
 
                 kernelProxy.ensurePersistedMode()
-                kernelProxy.serverInfo()?.let { info ->
-                    _data.update { state ->
-                        val node = info.node?.let { name -> NodeNameResolver.displayName(name) } ?: state.serverName
-                        state.copy(serverName = if (state.hasPlan) node else state.serverName)
-                    }
-                }
                 kernelProxy.proxyMode()?.let { mode ->
                     _data.update { it.copy(proxyMode = mode) }
                 }
@@ -126,8 +142,18 @@ constructor(
         viewModelScope.launch { subscriptionUpdater.refresh(_data, force = force) }
     }
 
+    private var updateJob: Job? = null
+
     fun updateSubscription() {
-        viewModelScope.launch { subscriptionUpdater.updateSubscription(_data, viewModelScope) }
+        // 串行化：先等上一次更新真正结束再启动新的。
+        // 取消是异步的——旧协程要到 finally 才释放 SubscriptionUpdater 的互斥锁；
+        // 若不等它结束就启动新协程，新协程会被 tryLock 静默丢弃，界面会一直停在"更新中"。
+        val previous = updateJob
+        updateJob =
+            viewModelScope.launch {
+                previous?.cancelAndJoin()
+                subscriptionUpdater.updateSubscription(_data, viewModelScope)
+            }
     }
 
     fun refreshAfterPurchase(tradeNo: String? = null): Job = subscriptionUpdater.refreshAfterPurchase(_data, tradeNo, viewModelScope)
@@ -187,7 +213,16 @@ constructor(
         _data.update { it.copy(errorMessageRes = null) }
     }
 
+    /**
+     * 用户点掉更新遮罩：真正取消进行中的订阅更新。
+     *
+     * 只把 isUpdating 置 false 是假取消——协程还活着，会把订阅重新下载、内核配置重写、
+     * 节点列表刷新和测速照跑一遍，并在结束后按自己的结果改写界面状态，
+     * 用户以为取消了、实际什么都没取消。
+     */
     fun cancelUpdating() {
+        // 只取消、不置空引用：保留到协程真正结束，下一次 updateSubscription 才能 join 到锁释放
+        updateJob?.cancel()
         _data.update { it.copy(isUpdating = false) }
     }
 

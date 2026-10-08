@@ -7,9 +7,12 @@ import javax.inject.Inject
 class DaysUntilExpiryUseCase
 @Inject
 constructor() {
-    operator fun invoke(expiredAtEpochSeconds: Long): Int {
+    operator fun invoke(
+        expiredAtEpochSeconds: Long,
+        now: () -> Instant = { Instant.now() },
+    ): Int {
         if (expiredAtEpochSeconds <= 0L) return 0
-        val now = Instant.now()
+        val now = now()
         val ceiling = now.plus(MAX_HORIZON_DAYS, ChronoUnit.DAYS)
         val target =
             if (expiredAtEpochSeconds >= ceiling.epochSecond) {

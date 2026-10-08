@@ -161,7 +161,55 @@ internal object SanitizerProxyNames {
         while (index < text.length && text[index] == ' ') index++
         if (index >= text.length) return null
         if (text[index] == '#') return null
-        return ValueSpan(line, index, text.length)
+        val start = index
+        val end = valueEnd(text, start)
+        if (end <= start) return null
+        return ValueSpan(line, start, end)
+    }
+
+    /**
+     * 值结束位置（不含行尾注释）。
+     *
+     * 引号值到配对引号为止（`name: "HK-01" # 备注` 的备注不属于值）；
+     * 裸值到行尾注释为止——YAML 里 `#` 需要前面是空白才算注释，
+     * 所以 `name: HK-01#x` 的 `#` 属于名字，只有 ` #` 才截断。
+     *
+     * 不剥离注释会让"同一名字 + 不同备注"的两个节点被当成不同名字：重名检查放行，
+     * 内核却按重名拒绝加载，而且自愈路径用的是同一套判断，会一直修不回来。
+     */
+    private fun valueEnd(
+        text: String,
+        start: Int,
+    ): Int {
+        val first = text[start]
+        if (first == '"' || first == '\'') {
+            var index = start + 1
+            while (index < text.length) {
+                val char = text[index]
+                // 双引号支持反斜杠转义，单引号里反斜杠是普通字符
+                if (char == '\\' && first == '"') {
+                    index += 2
+                    continue
+                }
+                if (char == first) return index + 1
+                index++
+            }
+            return text.length
+        }
+        var index = start
+        var limit = text.length
+        while (index < text.length) {
+            if (text[index] == '#' && index > start && text[index - 1] == ' ') {
+                limit = index
+                break
+            }
+            index++
+        }
+        // 注释前的空白不算值的一部分：重命名时替换区间不能把分隔空格一起吃掉，
+        // 否则会拼出 `"HK-01 # 2"# 备注` 这种把注释粘进引号的坏行
+        var end = limit
+        while (end > start && text[end - 1] == ' ') end--
+        return end
     }
 
     private fun flowSpan(
@@ -209,7 +257,7 @@ internal object SanitizerProxyNames {
                     index++
                 }
             } else {
-                index = line.length
+                index = valueEnd(line, start)
             }
             val name = SanitizerYamlLines.unwrapQuotes(line.substring(start, index).trim()).trim()
             if (name.isNotEmpty()) values.add(name)
@@ -392,11 +440,23 @@ internal object SanitizerProxyNames {
             if (indent.length <= keyIndent.length) break
             val trimmed = line.trimStart()
             if (!SanitizerRules.LIST_ITEM.containsMatchIn(trimmed)) continue
-            val name = SanitizerYamlLines.unwrapQuotes(trimmed.removePrefix("-").trim()).trim()
+            val name = SanitizerYamlLines.unwrapQuotes(commentFree(trimmed.removePrefix("-"))).trim()
             if (name.isEmpty()) continue
             existing.add(name)
             entries.add(index to name)
         }
         return existing to entries
+    }
+
+    /**
+     * 去掉行尾注释后的裸值：`jp-01 # 备注` → `jp-01`，`"jp-01" # 备注` → `jp-01`。
+     *
+     * 分组引用与节点名必须用同一套解析口径：名字里混进注释会导致重命名后的节点
+     * 匹配不上分组里的引用，新名字不会被补进分组。
+     */
+    private fun commentFree(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty() || trimmed[0] == '#') return ""
+        return SanitizerYamlLines.unwrapQuotes(trimmed.substring(0, valueEnd(trimmed, 0)).trim())
     }
 }

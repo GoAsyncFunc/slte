@@ -13,7 +13,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +28,7 @@ import com.slte.app.ui.component.SlteInputSize
 import com.slte.app.ui.component.SlteSheet
 import com.slte.app.ui.component.formatCurrency
 import com.slte.app.ui.component.formatNegCurrency
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
@@ -45,7 +45,6 @@ internal fun SelectPeriodSheet(
     onConfirmOrder: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     SlteSheet(
@@ -95,10 +94,10 @@ internal fun SelectPeriodSheet(
             Modifier
                 .fillMaxWidth()
                 .height(Dimens.size.button),
-            shape = SlteShapes.medium,
+            shape = SlteShapes.large,
             color =
             MaterialTheme.colorScheme.primary.copy(
-                alpha = if (canConfirm) 1f else Dimens.disabledAlpha,
+                alpha = if (canConfirm) 1f else SlteAlpha.disabled,
             ),
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
@@ -141,7 +140,7 @@ internal fun PeriodGrid(
                             onSelect(pp.period)
                         },
                         modifier = Modifier.weight(1f),
-                        shape = SlteShapes.medium,
+                        shape = SlteShapes.large,
                         color =
                         if (selected) {
                             MaterialTheme.colorScheme.primary
@@ -199,6 +198,7 @@ internal fun CouponInput(
         placeholder = stringResource(R.string.purchase_coupon_hint),
         icon = SlteIcons.Coupon,
         iconDesc = stringResource(R.string.purchase_coupon_hint),
+        onSheet = true,
         trailing = {
             Spacer(modifier = Modifier.width(Dimens.gap.sm))
             TextButton(

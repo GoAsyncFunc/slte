@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +26,7 @@ import com.slte.app.ui.component.SlteSheet
 import com.slte.app.ui.component.formatCurrency
 import com.slte.app.ui.component.formatNegCurrency
 import com.slte.app.ui.component.formatPlusCurrency
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
@@ -40,7 +40,6 @@ internal fun OrderPaymentSheet(
     onConfirmPayment: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     SlteSheet(
@@ -57,7 +56,7 @@ internal fun OrderPaymentSheet(
         } else {
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = SlteShapes.medium,
+                shape = SlteShapes.large,
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
@@ -173,10 +172,10 @@ internal fun OrderPaymentSheet(
                     Modifier
                         .weight(2f)
                         .height(Dimens.size.button),
-                    shape = SlteShapes.medium,
+                    shape = SlteShapes.large,
                     color =
                     MaterialTheme.colorScheme.primary.copy(
-                        alpha = if (payEnabled) 1f else Dimens.disabledAlpha,
+                        alpha = if (payEnabled) 1f else SlteAlpha.disabled,
                     ),
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ) {

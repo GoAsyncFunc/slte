@@ -14,7 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.slte.app.R
+import com.slte.app.ui.component.ErrorState
 import com.slte.app.ui.component.LoadingOverlay
+import com.slte.app.ui.component.PullRefreshScrollable
 import com.slte.app.ui.component.SltePullRefresh
 import com.slte.app.ui.component.SlteScaffold
 import com.slte.app.ui.component.SubmitTipHost
@@ -42,6 +44,18 @@ fun InviteScreen(
             onRefresh = viewModel::refresh,
             modifier = Modifier.padding(innerPadding),
         ) {
+            val errorRes = data.errorMessageRes
+            if (errorRes != null && data.codes.isEmpty()) {
+                // 首次加载失败且没有任何可显示的数据：明确告诉用户失败原因并给重试入口，
+                // 不再留一个"统计都是 0"的空页面让用户以为是数据问题
+                PullRefreshScrollable {
+                    ErrorState(
+                        message = stringResource(errorRes),
+                        onRetry = viewModel::refresh,
+                    )
+                }
+                return@SltePullRefresh
+            }
             LazyColumn(
                 modifier =
                 Modifier

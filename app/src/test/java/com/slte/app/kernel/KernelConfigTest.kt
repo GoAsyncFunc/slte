@@ -1,8 +1,6 @@
 package com.slte.app.kernel
 
 import android.content.Context
-import com.github.kr328.clash.service.model.Profile
-import com.github.kr328.clash.service.remote.IProfileManager
 import com.slte.app.BuildConfig
 import com.slte.app.support.MainDispatcherRule
 import io.mockk.coEvery
@@ -31,7 +29,7 @@ class KernelConfigTest {
 
     private val context = mockk<Context>(relaxed = true)
     private val manager = mockk<KernelManager>(relaxed = true)
-    private val profiles = mockk<IProfileManager>(relaxed = true)
+    private val profiles = mockk<KernelProfiles>(relaxed = true)
     private val subscribeSource = mockk<SubscribeSource>(relaxed = true)
     private val remoteConfig = mockk<AppRemoteConfig>(relaxed = true)
     private val reporter = KernelFaultReporter(mainRule.dispatcher)
@@ -59,7 +57,7 @@ class KernelConfigTest {
         domains: List<String> = listOf("example.net"),
     ): KernelConfig {
         every { context.filesDir } returns tmp.root
-        every { manager.profile() } returns profiles
+        coEvery { manager.awaitProfile() } returns profiles
         every { remoteConfig.apiBaseUrl } returns baseUrl
         every { remoteConfig.directDomains } returns domains
         every { subscribeSource.getEmail() } returns email
@@ -71,21 +69,7 @@ class KernelConfigTest {
         name: String = profileNameFor(email),
         source: String = subscribeUrl,
         imported: Boolean = true,
-    ) = Profile(
-        uuid = uuid,
-        name = name,
-        type = Profile.Type.Url,
-        source = source,
-        active = true,
-        interval = 0,
-        upload = 0,
-        download = 0,
-        total = 0,
-        expire = 0,
-        updatedAt = 0,
-        imported = imported,
-        pending = false,
-    )
+    ) = KernelProfile(uuid = uuid, name = name, source = source, imported = imported)
 
     private fun body(text: String) = text.toResponseBody("application/yaml".toMediaType())
 
@@ -166,16 +150,18 @@ class KernelConfigTest {
     }
 
     @Test
-    fun `无邮箱时按订阅地址前缀清理`() = runTest(mainRule.dispatcher) {
+    fun `无邮箱时不按共享订阅地址误删账号配置`() = runTest(mainRule.dispatcher) {
         val cfg = config()
-        val stale = UUID.randomUUID()
+        val accountA = UUID.randomUUID()
+        val accountB = UUID.randomUUID()
         coEvery { profiles.queryAll() } returns
             listOf(
-                profile(stale, name = "旧名字", source = "$subscribeUrl?token=abc"),
+                profile(accountA, name = "账号A", source = "$subscribeUrl?token=a"),
+                profile(accountB, name = "账号B", source = "$subscribeUrl?token=b"),
             )
 
-        assertTrue(cfg.deleteAccountProfiles(null))
-        coVerify { profiles.delete(stale) }
+        assertFalse(cfg.deleteAccountProfiles(null))
+        coVerify(exactly = 0) { profiles.delete(any()) }
     }
 
     @Test

@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -28,12 +27,16 @@ import com.slte.app.domain.model.Notice
 import com.slte.app.ui.component.RichText
 import com.slte.app.ui.component.SlteCard
 import com.slte.app.ui.component.SlteSheet
+import com.slte.app.ui.theme.SlteAlpha
 import com.slte.app.ui.theme.SlteColors
 import com.slte.app.ui.theme.SlteIcons
 import com.slte.app.ui.theme.SlteShapes
 import com.slte.app.ui.theme.SlteType
 import com.slte.app.utils.Dimens
 import com.slte.app.utils.FormatUtils
+
+/** 公告正文在列表卡内折叠显示的行数，完整内容进详情。 */
+private const val MAX_BODY_LINES = 2
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -97,7 +100,7 @@ internal fun NoticeCard(
                     text = plainBody,
                     style = SlteType.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = Dimens.noticeBodyMaxLines,
+                    maxLines = MAX_BODY_LINES,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -106,7 +109,7 @@ internal fun NoticeCard(
             Text(
                 text = FormatUtils.formatDate(notice.createdAt),
                 style = SlteType.label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.noticeTimeAlpha),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = SlteAlpha.noticeTime),
             )
         }
     }
@@ -138,8 +141,6 @@ internal fun NoticeDetailSheet(
     notice: Notice,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     SlteSheet(
         onDismiss = onDismiss,
         title = notice.title,
@@ -155,7 +156,7 @@ internal fun NoticeDetailSheet(
         Text(
             text = FormatUtils.formatDate(notice.createdAt),
             style = SlteType.label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.noticeTimeAlpha),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = SlteAlpha.noticeTime),
         )
 
         Spacer(modifier = Modifier.height(Dimens.gap.md))

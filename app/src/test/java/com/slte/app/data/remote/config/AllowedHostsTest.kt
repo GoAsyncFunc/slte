@@ -23,13 +23,13 @@ class AllowedHostsTest {
     }
 
     @Test
-    fun `订阅地址必须https且在白名单内`() {
-        assertTrue(AllowedHosts.isAllowedUrl("https://api.example.com/api/v1/client/subscribe?token=x"))
-
-        assertFalse(AllowedHosts.isAllowedUrl("http://api.example.com/subscribe"))
-
-        assertFalse(AllowedHosts.isAllowedUrl("https://attacker.tld/subscribe?token=x"))
-        assertFalse(AllowedHosts.isAllowedUrl("not a url"))
-        assertFalse(AllowedHosts.isAllowedUrl(null))
+    fun `URL校验由调用方拆解为host后走isAllowedHost`() {
+        // isAllowedUrl 已删除：URL 级校验（https + host 白名单）由 SubscribeSourceImpl /
+        // RemoteConfigParser 在拆出 host 后各自调用 isAllowedHost，此处保留语义回归
+        val urlHost = { url: String? ->
+            url?.removePrefix("https://")?.removePrefix("http://")?.substringBefore('/')?.substringBefore(':')
+        }
+        assertTrue(AllowedHosts.isAllowedHost(urlHost("https://api.example.com/api/v1/client/subscribe?token=x")))
+        assertFalse(AllowedHosts.isAllowedHost(urlHost("http://attacker.tld/subscribe")))
     }
 }

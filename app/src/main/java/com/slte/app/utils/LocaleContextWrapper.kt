@@ -36,7 +36,6 @@ internal fun resolveEffectiveLocale(
     storedLocale != null -> storedLocale
     systemLocale.language == "zh" && isTraditionalChinese(systemLocale) -> Locale.TRADITIONAL_CHINESE
     systemLocale.language == "zh" -> Locale.SIMPLIFIED_CHINESE
-    systemLocale.language == "en" -> Locale.ENGLISH
     else -> Locale.ENGLISH
 }
 

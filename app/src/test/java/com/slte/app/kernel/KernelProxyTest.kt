@@ -1,13 +1,10 @@
 package com.slte.app.kernel
 
 import android.content.Context
-import com.github.kr328.clash.core.Clash
-import com.github.kr328.clash.core.model.ConfigurationOverride
-import com.github.kr328.clash.core.model.TunnelState
-import com.github.kr328.clash.service.remote.IClashManager
 import com.slte.app.data.local.InMemoryPreferences
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.utils.Constants
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -29,7 +26,7 @@ class KernelProxyTest {
     private val prefs = InMemoryPreferences()
     private val context = mockk<Context>(relaxed = true)
     private val manager = mockk<KernelManager>(relaxed = true)
-    private val clash = mockk<IClashManager>(relaxed = true)
+    private val clash = mockk<KernelClash>(relaxed = true)
     private val config = mockk<KernelConfig>(relaxed = true)
     private val store = mockk<SpeedResultStore>(relaxed = true)
     private val geoIp = mockk<GeoIpResolver>(relaxed = true)
@@ -38,34 +35,32 @@ class KernelProxyTest {
     private fun proxy(): KernelProxy {
         every { context.getSharedPreferences(any(), any()) } returns prefs
         every { context.packageName } returns "com.slte.app"
-        every { manager.clash() } returns clash
+        coEvery { manager.awaitClash() } returns clash
         return KernelProxy(reporter, manager, config, store, geoIp, context)
     }
-
-    private fun overrideWith(mode: TunnelState.Mode?) = ConfigurationOverride(mode = mode)
 
     @Test
     fun `代理模式映射为界面常量`() = runTest(mainRule.dispatcher) {
         val proxy = proxy()
 
-        every { clash.queryOverride(Clash.OverrideSlot.Persist) } returns overrideWith(TunnelState.Mode.Global)
+        every { clash.queryPersistedProxyMode() } returns KernelTunnelMode.GLOBAL
         assertEquals(Constants.PROXY_MODE_GLOBAL, proxy.proxyMode())
 
-        every { clash.queryOverride(Clash.OverrideSlot.Persist) } returns overrideWith(TunnelState.Mode.Direct)
+        every { clash.queryPersistedProxyMode() } returns KernelTunnelMode.DIRECT
         assertEquals(Constants.PROXY_MODE_DIRECT, proxy.proxyMode())
 
-        every { clash.queryOverride(Clash.OverrideSlot.Persist) } returns overrideWith(TunnelState.Mode.Script)
+        every { clash.queryPersistedProxyMode() } returns KernelTunnelMode.SCRIPT
         assertEquals(Constants.PROXY_MODE_SCRIPT, proxy.proxyMode())
 
-        every { clash.queryOverride(Clash.OverrideSlot.Persist) } returns overrideWith(TunnelState.Mode.Rule)
+        every { clash.queryPersistedProxyMode() } returns KernelTunnelMode.RULE
         assertEquals(Constants.DEFAULT_PROXY_MODE, proxy.proxyMode())
     }
 
     @Test
     fun `持久化覆盖为空时回落到隧道状态模式`() = runTest(mainRule.dispatcher) {
         val proxy = proxy()
-        every { clash.queryOverride(Clash.OverrideSlot.Persist) } returns overrideWith(null)
-        every { clash.queryTunnelState() } returns TunnelState(mode = TunnelState.Mode.Global)
+        every { clash.queryPersistedProxyMode() } returns null
+        every { clash.queryTunnelMode() } returns KernelTunnelMode.GLOBAL
 
         assertEquals(Constants.PROXY_MODE_GLOBAL, proxy.proxyMode())
     }
@@ -73,7 +68,7 @@ class KernelProxyTest {
     @Test
     fun `内核不可用时代理模式返回空`() = runTest(mainRule.dispatcher) {
         val proxy = proxy()
-        every { manager.clash() } returns null
+        coEvery { manager.awaitClash() } returns null
 
         assertNull(proxy.proxyMode())
     }
@@ -81,7 +76,7 @@ class KernelProxyTest {
     @Test
     fun `内核不可用时切换只落本地不广播`() = runTest(mainRule.dispatcher) {
         val proxy = proxy()
-        every { manager.clash() } returns null
+        coEvery { manager.awaitClash() } returns null
 
         proxy.setProxyMode(Constants.PROXY_MODE_DIRECT)
         advanceUntilIdle()
@@ -97,7 +92,7 @@ class KernelProxyTest {
         proxy.ensurePersistedMode()
         advanceUntilIdle()
 
-        verify(exactly = 0) { clash.patchOverride(any(), any()) }
+        verify(exactly = 0) { clash.setPersistedProxyMode(any()) }
     }
 
     @Test
@@ -112,7 +107,7 @@ class KernelProxyTest {
     @Test
     fun `内核不可用时 TUN 模式回退缓存再回退默认`() = runTest(mainRule.dispatcher) {
         val proxy = proxy()
-        every { manager.clash() } returns null
+        coEvery { manager.awaitClash() } returns null
 
         assertEquals("system", proxy.tunStackMode())
 
@@ -137,7 +132,7 @@ class KernelProxyTest {
         val proxy = proxy()
         val fault = async { reporter.faults.first() }
         runCurrent()
-        every { manager.clash() } throws IllegalStateException("内核不可用")
+        coEvery { manager.awaitClash() } throws IllegalStateException("内核不可用")
 
         assertNull(proxy.proxyMode())
 

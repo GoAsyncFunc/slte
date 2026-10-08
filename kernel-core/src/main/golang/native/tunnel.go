@@ -71,12 +71,19 @@ func healthCheck(completable unsafe.Pointer, name C.c_string) {
 		tunnel.HealthCheck(name)
 
 		C.complete(completable, nil)
+
+		C.release_object(completable)
 	}(C.GoString(name))
 }
 
 //export healthCheckAll
 func healthCheckAll() {
 	tunnel.HealthCheckAll()
+}
+
+//export urlTest
+func urlTest(name C.c_string, timeoutMs C.int) *C.char {
+	return marshalJson(tunnel.UrlTest(C.GoString(name), int(timeoutMs)))
 }
 
 //export patchSelector

@@ -1,9 +1,9 @@
 package com.slte.app.ui.screen.invite
 
 import com.slte.app.R
-import com.slte.app.data.repository.InviteRepository
 import com.slte.app.domain.model.InviteInfo
 import com.slte.app.domain.model.InviteStat
+import com.slte.app.domain.repository.InviteRepository
 import com.slte.app.support.MainDispatcherRule
 import com.slte.app.ui.component.SubmitTip
 import io.mockk.coEvery
@@ -11,6 +11,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -28,6 +29,22 @@ class InviteViewModelTest {
         coEvery { repository.fetchInviteInfo() } returns Result.success(InviteInfo(stat = stat))
         coEvery { repository.fetchCommissionRecords(any(), any()) } returns Result.success(emptyList())
         coEvery { repository.fetchWithdrawMethods() } returns methods
+    }
+
+    @Test
+    fun `邀请信息加载失败时给出可见提示并在成功后清掉`() = runTest(mainRule.dispatcher) {
+        stubPageData()
+        coEvery { repository.fetchInviteInfo() } returns Result.failure(java.io.IOException("boom"))
+        val vm = InviteViewModel(repository)
+
+        vm.enterAndRefresh()
+        advanceUntilIdle()
+        assertTrue("加载失败必须有提示，不能静默显示空数据", vm.data.value.errorMessageRes != null)
+
+        stubPageData()
+        vm.refresh()
+        advanceUntilIdle()
+        assertNull("重新加载成功后应清掉提示", vm.data.value.errorMessageRes)
     }
 
     @Test

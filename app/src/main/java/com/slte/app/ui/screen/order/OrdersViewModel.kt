@@ -1,10 +1,11 @@
 package com.slte.app.ui.screen.order
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slte.app.R
-import com.slte.app.data.repository.OrderRepository
 import com.slte.app.domain.model.OrderInfo
+import com.slte.app.domain.repository.OrderRepository
 import com.slte.app.ui.ContentPhase
 import com.slte.app.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class OrdersData(
     val orders: List<OrderInfo> = emptyList(),
     val phase: ContentPhase = ContentPhase.Loading,
@@ -32,9 +34,19 @@ constructor(
     private val _data = MutableStateFlow(OrdersData())
     val data: StateFlow<OrdersData> = _data.asStateFlow()
 
+    private var loadedOnce = false
+
     fun enterAndRefresh() {
+        loadedOnce = true
         _data.update { it.copy(isEntering = true) }
         loadOrders()
+    }
+
+    /** 进程重建恢复到本页时的兜底首拉：正常进入由 enterAndRefresh 负责，这里只在从未加载过时补一次。 */
+    fun ensureLoaded() {
+        if (loadedOnce) return
+        loadedOnce = true
+        enterAndRefresh()
     }
 
     fun retry() {

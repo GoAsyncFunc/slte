@@ -10,9 +10,9 @@ import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.sendProfileLoaded
+import java.util.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.selects.select
-import java.util.*
 
 class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadException>(service) {
     data class LoadException(val message: String)
@@ -34,13 +34,14 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
         while (true) {
             val changed: UUID? = select {
                 broadcasts.onReceive {
-                    if (it.action == Intents.ACTION_PROFILE_CHANGED)
+                    if (it.action == Intents.ACTION_PROFILE_CHANGED) {
                         UUID.fromString(it.getStringExtra(Intents.EXTRA_UUID))
-                    else
+                    } else {
                         null
+                    }
                 }
                 reload.onReceive {
-                        null
+                    null
                 }
             }
             Log.d("ConfigurationModule: event received, changed=$changed")
@@ -53,8 +54,9 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
                     continue
                 }
 
-                if (current == loaded && changed != null && changed != loaded)
+                if (current == loaded && changed != null && changed != loaded) {
                     continue
+                }
 
                 loaded = current
 

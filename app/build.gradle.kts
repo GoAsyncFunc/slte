@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.roborazzi)
 }
 
 ktlint {
@@ -256,6 +257,8 @@ dependencies {
     testImplementation(libs.androidx.ui.test.junit4)
 
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -330,9 +333,9 @@ val verifyReleaseApiSurvivors =
         }
     }
 
-val verifyKernelBinary =
-    tasks.register("verifyKernelBinary") {
-        group = "verification"
-        description = "校验预编译内核产物 libclash.so 的 SHA-256 与 SHA256SUMS 记录一致"
-        dependsOn(":kernel-core:verifyNativeLibraries")
-    }
+// R8 存活校验此前只定义未接线，等于没有防线：挂在 assembleRelease 上，
+// 任何 release 出包（本地/CI）都先核对 mapping；kernel 二进制校验已由
+// :kernel-core 的 preBuild 链覆盖，无需重复别名任务
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    dependsOn(verifyReleaseApiSurvivors)
+}

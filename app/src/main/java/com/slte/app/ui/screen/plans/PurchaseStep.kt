@@ -2,6 +2,7 @@ package com.slte.app.ui.screen.plans
 
 import com.slte.app.domain.model.PaymentMethod
 import com.slte.app.domain.model.PlanInfo
+import com.slte.app.domain.usecase.purchase.finalPriceCents
 
 sealed interface PurchaseStep {
 

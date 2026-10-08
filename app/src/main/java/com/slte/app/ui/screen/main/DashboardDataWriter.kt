@@ -1,9 +1,9 @@
 package com.slte.app.ui.screen.main
 
-import com.slte.app.data.repository.ServerRepository
-import com.slte.app.data.repository.SubscribeRepository
 import com.slte.app.domain.model.SubscribeInfo
 import com.slte.app.domain.model.isPlanValid
+import com.slte.app.domain.repository.ServerRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.domain.usecase.DaysUntilExpiryUseCase
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.Constants

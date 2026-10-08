@@ -1,6 +1,13 @@
 package com.slte.app.data.remote.config
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -8,6 +15,9 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -20,11 +30,11 @@ class ApiFailoverInterceptorTest {
     private val primary: String get() = server1.url("/").toString()
     private val backup: String get() = server2.url("/").toString()
 
-    private fun failoverConfig() = object : FailoverConfig {
-        override val apiBaseUrl: String = primary
-
-        override fun apiCandidates(primary: String): List<String> = listOf(primary, backup)
-    }
+    private fun failoverConfig(): RemoteConfig = // 接口层已删（生产只装配具体类型），测试用 mockk 保持隔离
+        mockk {
+            every { apiBaseUrl } returns primary
+            every { apiCandidates(any()) } answers { listOf(primary, backup) }
+        }
 
     private fun ok() = MockResponse()
         .setResponseCode(200)
@@ -136,10 +146,9 @@ class ApiFailoverInterceptorTest {
     @Test
     fun `候选列表重复时全部故障不抛异常`() {
         val dupConfig =
-            object : FailoverConfig {
-                override val apiBaseUrl: String = primary
-
-                override fun apiCandidates(primary: String): List<String> = listOf(primary, primary)
+            mockk<RemoteConfig> {
+                every { apiBaseUrl } returns primary
+                every { apiCandidates(any()) } answers { listOf(primary, primary) }
             }
         val dupClient =
             OkHttpClient
@@ -160,10 +169,9 @@ class ApiFailoverInterceptorTest {
     @Test
     fun `单候选故障时直接返回故障响应`() {
         val singleConfig =
-            object : FailoverConfig {
-                override val apiBaseUrl: String = primary
-
-                override fun apiCandidates(primary: String): List<String> = listOf(primary)
+            mockk<RemoteConfig> {
+                every { apiBaseUrl } returns primary
+                every { apiCandidates(any()) } answers { listOf(primary) }
             }
         val singleClient =
             OkHttpClient
@@ -178,5 +186,49 @@ class ApiFailoverInterceptorTest {
             .execute()
             .use { assertEquals(500, it.code) }
         assertEquals(1, server1.requestCount)
+    }
+
+    @Test
+    fun `只有候选自身超时才算候选故障`() {
+        assertFalse(
+            "读超时是候选自己的问题，要记故障",
+            ApiFailoverInterceptor.isSharedBudgetTimeout(SocketTimeoutException("read timed out")),
+        )
+        assertTrue(
+            "call 总超时与候选无关，不能记故障",
+            ApiFailoverInterceptor.isSharedBudgetTimeout(InterruptedIOException("timeout")),
+        )
+        assertFalse(
+            "普通 IO 异常按候选故障处理",
+            ApiFailoverInterceptor.isSharedBudgetTimeout(IOException("connection reset")),
+        )
+    }
+
+    @Test
+    fun `call 预算耗尽时不记候选故障也不再切换`() {
+        val chain = mockk<Interceptor.Chain>(relaxed = true)
+        every { chain.request() } returns Request.Builder().url("${primary}api/v1/user/info").build()
+        every { chain.proceed(any()) } throws InterruptedIOException("timeout")
+
+        assertThrows(IOException::class.java) { ApiFailoverInterceptor(failoverConfig(), selector).intercept(chain) }
+
+        assertEquals(
+            "call 预算耗尽不能记到候选头上，否则健康地址会被逐个误判成故障而全部熔断",
+            0,
+            selector.snapshot().sumOf { it.consecutiveFailures },
+        )
+        verify(exactly = 1) { chain.proceed(any()) }
+    }
+
+    @Test
+    fun `候选自身读超时要记故障并切换下一个`() {
+        val chain = mockk<Interceptor.Chain>(relaxed = true)
+        every { chain.request() } returns Request.Builder().url("${primary}api/v1/user/info").build()
+        every { chain.proceed(any()) } throws SocketTimeoutException("read timed out")
+
+        assertThrows(IOException::class.java) { ApiFailoverInterceptor(failoverConfig(), selector).intercept(chain) }
+
+        assertEquals("两个候选各自超时，各记一次失败", 2, selector.snapshot().sumOf { it.consecutiveFailures })
+        verify(exactly = 2) { chain.proceed(any()) }
     }
 }

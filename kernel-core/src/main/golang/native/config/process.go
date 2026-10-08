@@ -76,12 +76,18 @@ func patchGeneral(cfg *config.RawConfig, _ string) error {
 	cfg.TLS = config.RawTLS{}
 	// 安全:订阅不得启用 iptables 流量劫持(无 tproxy 端口时 executor 会 os.Exit(2) 崩溃)
 	cfg.IPTables = config.RawIPTables{}
+	// 安全:订阅不得指定 geo 数据库下载源(geox-url 供应链投毒/SSRF 面)与
+	// NTP 服务器(时间源劫持),一律回退应用内置默认值;app 侧清洗同键丢弃,此处为最终兜底
+	cfg.GeoXUrl = config.DefaultRawConfig().GeoXUrl
+	cfg.NTP = config.DefaultRawConfig().NTP
 
 	return nil
 }
 
 func patchProfile(cfg *config.RawConfig, _ string) error {
-	cfg.Profile.StoreSelected = false
+	// 保留内核的组选择持久化（cache.db）：重启后由内核在加载配置时恢复选择，
+	// 应用侧仍有 ensurePersistedSelection 兜底（订阅改名等恢复不了的场景）
+	cfg.Profile.StoreSelected = true
 	cfg.Profile.StoreFakeIP = true
 
 	// 安全:订阅不得携带正则匹配脚本(ReDoS 输入面,app 侧脱敏可被绕过)
@@ -90,7 +96,7 @@ func patchProfile(cfg *config.RawConfig, _ string) error {
 	return nil
 }
 
-// 自家后端域名：必须与 app 侧 RemoteConfig.ALLOWED_HOST_SUFFIXES 保持同步，
+// 自家后端域名：必须与 app 侧 AllowedHosts.SUFFIXES 保持同步（构建期由 SLTE_ALLOWED_DOMAINS 注入），
 // 新增白名单域时同步此清单（app 清洗注入 + 内核兜底双防线一致）
 var directDomains = []string{"example.com"}
 

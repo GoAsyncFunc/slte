@@ -1,14 +1,18 @@
 package com.slte.app.data.repository
 
 import com.slte.app.data.local.CredentialStore
-import com.slte.app.data.local.SessionManager
 import com.slte.app.data.local.SessionStore
 import com.slte.app.data.remote.api.AuthApi
 import com.slte.app.data.remote.api.dto.LoginResponseDto
 import com.slte.app.domain.model.EmailCodePurpose
+import com.slte.app.domain.model.PasswordChangeOutcome
 import com.slte.app.domain.model.RegisterConfig
+import com.slte.app.domain.model.SessionNotice
 import com.slte.app.domain.model.SessionState
 import com.slte.app.domain.model.User
+import com.slte.app.domain.repository.AuthRepository
+import com.slte.app.domain.repository.SessionRepository
+import com.slte.app.domain.repository.SubscribeRepository
 import com.slte.app.utils.AppLog
 import com.slte.app.utils.sanitizeLog
 import javax.inject.Inject
@@ -17,39 +21,42 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-
 @Singleton
-class AuthRepository
+class AuthRepositoryImpl
 @Inject
 constructor(
     private val authApi: AuthApi,
     private val sessionStore: SessionStore,
     private val credentialStore: CredentialStore,
-    private val sessionManager: SessionManager,
+    private val sessionManager: SessionRepository,
     private val subscribeRepository: SubscribeRepository,
-) {
+) : AuthRepository {
 
-    val sessionState: StateFlow<SessionState>
+    override val sessionState: StateFlow<SessionState>
         get() = sessionManager.sessionState
 
-    fun saveCredentials(
+    override val sessionNotices: SharedFlow<SessionNotice>
+        get() = sessionManager.sessionNotices
+
+    override fun saveCredentials(
         email: String,
         password: String,
     ) = credentialStore.save(email, password)
 
-    fun clearCredentials() = credentialStore.clear()
+    override fun clearCredentials() = credentialStore.clear()
 
-    fun clearSavedPassword() = credentialStore.clearPassword()
+    override fun clearSavedPassword() = credentialStore.clearPassword()
 
-    fun savedEmail(): String? = credentialStore.getSavedEmail()
+    override fun savedEmail(): String? = credentialStore.getSavedEmail()
 
-    fun savedPassword(): String? = credentialStore.getSavedPassword()
+    override fun savedPassword(): String? = credentialStore.getSavedPassword()
 
     private val revokeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    suspend fun login(
+    override suspend fun login(
         email: String,
         password: String,
     ): Result<User> = runApi {
@@ -60,11 +67,11 @@ constructor(
         user
     }
 
-    suspend fun register(
+    override suspend fun register(
         email: String,
         password: String,
-        emailCode: String? = null,
-        inviteCode: String? = null,
+        emailCode: String?,
+        inviteCode: String?,
     ): Result<User> = runApi {
         val response = authApi.register(email.trim(), password, emailCode, inviteCode)
         val user = response.toDomainUser(email.trim())
@@ -73,11 +80,16 @@ constructor(
         user
     }
 
-    suspend fun fetchRegisterConfig(): Result<RegisterConfig> = runApi {
-        authApi.fetchRegisterConfig()
+    private var cachedRegisterConfig: RegisterConfig? = null
+
+    /** 注册页直接读这份配置：登录页进注册页前刚拉过，避免重复请求，也不靠路由传参耦合。 */
+    override fun cachedRegisterConfig(): RegisterConfig? = cachedRegisterConfig
+
+    override suspend fun fetchRegisterConfig(): Result<RegisterConfig> = runApi {
+        authApi.fetchRegisterConfig().also { cachedRegisterConfig = it }
     }
 
-    suspend fun forgotPassword(
+    override suspend fun forgotPassword(
         email: String,
         emailCode: String,
         newPassword: String,
@@ -85,14 +97,14 @@ constructor(
         authApi.forgotPassword(email.trim(), emailCode.trim(), newPassword)
     }
 
-    suspend fun sendEmailCode(
+    override suspend fun sendEmailCode(
         email: String,
-        purpose: EmailCodePurpose = EmailCodePurpose.FORGOT_PASSWORD,
+        purpose: EmailCodePurpose,
     ): Result<Unit> = runApi {
         authApi.sendEmailCode(email.trim(), purpose)
     }
 
-    suspend fun updateRemindExpire(enabled: Boolean): Result<Unit> = runApi {
+    override suspend fun updateRemindExpire(enabled: Boolean): Result<Unit> = runApi {
         authApi.updateRemindExpire(enabled)
         val current = sessionManager.sessionState.value as? SessionState.LoggedIn
         if (current != null) {
@@ -102,7 +114,7 @@ constructor(
         }
     }
 
-    suspend fun updateRemindTraffic(enabled: Boolean): Result<Unit> = runApi {
+    override suspend fun updateRemindTraffic(enabled: Boolean): Result<Unit> = runApi {
         authApi.updateRemindTraffic(enabled)
         val current = sessionManager.sessionState.value as? SessionState.LoggedIn
         if (current != null) {
@@ -112,33 +124,36 @@ constructor(
         }
     }
 
-    suspend fun changePassword(
+    override suspend fun changePassword(
         oldPassword: String,
         newPassword: String,
-    ): Result<Unit> = runApi {
+    ): Result<PasswordChangeOutcome> = runApi {
         authApi.changePassword(oldPassword, newPassword)
-        val current = sessionManager.sessionState.value as? SessionState.LoggedIn
-        if (current != null) {
-            val email = current.user.email
-            val response =
-                try {
-                    authApi.login(email.trim(), newPassword)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    sessionManager.clearSession()
-                    throw e
-                }
-            val user = response.toDomainUser(email.trim())
-            sessionManager.setLoggedIn(user)
-            subscribeRepository.invalidateCache()
-            if (credentialStore.getSavedEmail() != null) {
-                credentialStore.save(email.trim(), newPassword)
-            }
+        val email = (sessionManager.sessionState.value as? SessionState.LoggedIn)?.user?.email ?: sessionStore.getEmail()
+        if (email != null && credentialStore.getSavedEmail()?.equals(email, ignoreCase = true) == true) {
+            // The server change is already committed; keep the remembered password in sync
+            // even if the follow-up login has a transient network failure.
+            credentialStore.save(email.trim(), newPassword)
         }
+        val current = sessionManager.sessionState.value as? SessionState.LoggedIn
+        if (current == null) return@runApi PasswordChangeOutcome.SIGN_IN_REQUIRED
+
+        val response =
+            try {
+                authApi.login(current.user.email.trim(), newPassword)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                sessionManager.clearSession(notice = SessionNotice.PASSWORD_CHANGED_REQUIRES_SIGN_IN)
+                return@runApi PasswordChangeOutcome.SIGN_IN_REQUIRED
+            }
+        val user = response.toDomainUser(current.user.email.trim())
+        sessionManager.setLoggedIn(user)
+        subscribeRepository.invalidateCache()
+        PasswordChangeOutcome.SESSION_RESTORED
     }
 
-    fun logout() {
+    override fun logout() {
         val authData = sessionStore.getAuthData()
         if (authData != null) {
             revokeScope.launch {

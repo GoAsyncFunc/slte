@@ -30,6 +30,7 @@ fun SltePasswordInput(
     imeAction: ImeAction = ImeAction.Done,
     bordered: Boolean = true,
     size: SlteInputSize = SlteInputSize.Hero,
+    onSheet: Boolean = false,
 ) {
     var visible by rememberSaveable { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
@@ -43,6 +44,7 @@ fun SltePasswordInput(
         enabled = enabled,
         imeAction = imeAction,
         bordered = bordered,
+        onSheet = onSheet,
         size = size,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailing = {

@@ -1,6 +1,9 @@
 package com.slte.app.ui.screen.plans
 
 import com.slte.app.R
+import com.slte.app.domain.usecase.purchase.CheckoutOutcome
+import com.slte.app.domain.usecase.purchase.OrderCreateOutcome
+import com.slte.app.domain.usecase.purchase.OrderPaymentLoad
 
 internal fun OrderPaymentLoad.toToastRes(): Int? = when (this) {
     is OrderPaymentLoad.Failed -> messageRes

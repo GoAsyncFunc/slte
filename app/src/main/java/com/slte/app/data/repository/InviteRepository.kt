@@ -3,43 +3,44 @@ package com.slte.app.data.repository
 import com.slte.app.data.remote.api.AuthApi
 import com.slte.app.domain.model.CommissionRecord
 import com.slte.app.domain.model.InviteInfo
+import com.slte.app.domain.repository.InviteRepository as InviteRepositoryContract
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class InviteRepository
+class InviteRepositoryImpl
 @Inject
 constructor(
     private val authApi: AuthApi,
-) {
+) : InviteRepositoryContract {
 
-    suspend fun fetchInviteInfo(): Result<InviteInfo> = runApi {
+    override suspend fun fetchInviteInfo(): Result<InviteInfo> = runApi {
         authApi.fetchInviteInfo()
     }
 
-    suspend fun generateInviteCode(): Result<Boolean> = runApi {
+    override suspend fun generateInviteCode(): Result<Boolean> = runApi {
         authApi.generateInviteCode()
     }
 
-    suspend fun fetchCommissionRecords(
-        page: Int = 1,
-        pageSize: Int = 10,
+    override suspend fun fetchCommissionRecords(
+        page: Int,
+        pageSize: Int,
     ): Result<List<CommissionRecord>> = runApi {
         authApi.fetchCommissionRecords(page, pageSize)
     }
 
-    suspend fun transferCommission(transferAmountCents: Int): Result<Boolean> = runApi {
+    override suspend fun transferCommission(transferAmountCents: Int): Result<Boolean> = runApi {
         authApi.transferCommission(transferAmountCents)
     }
 
-    suspend fun withdrawCommission(
+    override suspend fun withdrawCommission(
         method: String,
         account: String,
     ): Result<Boolean> = runApi {
         authApi.withdrawCommission(method, account)
     }
 
-    suspend fun fetchWithdrawMethods(): Result<List<String>> = runApi {
+    override suspend fun fetchWithdrawMethods(): Result<List<String>> = runApi {
         authApi.fetchWithdrawMethods()
     }
 }

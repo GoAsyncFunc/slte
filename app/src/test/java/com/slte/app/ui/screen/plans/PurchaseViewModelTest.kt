@@ -7,8 +7,13 @@ import com.slte.app.data.remote.api.dto.CouponCheckResultDto
 import com.slte.app.data.remote.api.dto.CreateOrderResultDto
 import com.slte.app.data.remote.api.dto.OrderInfoDto
 import com.slte.app.data.remote.api.dto.PaymentMethodDto
-import com.slte.app.data.repository.OrderRepository
+import com.slte.app.data.repository.OrderRepositoryImpl
 import com.slte.app.domain.model.PlanInfo
+import com.slte.app.domain.usecase.purchase.CouponChecker
+import com.slte.app.domain.usecase.purchase.OrderCreator
+import com.slte.app.domain.usecase.purchase.OrderPaymentLoader
+import com.slte.app.domain.usecase.purchase.OrderPaymentPoller
+import com.slte.app.domain.usecase.purchase.PaymentCheckout
 import com.slte.app.support.FakeAuthApi
 import com.slte.app.support.MainDispatcherRule
 import kotlinx.coroutines.flow.first
@@ -24,7 +29,7 @@ class PurchaseViewModelTest {
     val mainRule = MainDispatcherRule()
 
     private val api = FakeAuthApi()
-    private val repository = OrderRepository(api)
+    private val repository = OrderRepositoryImpl(api)
 
     private fun viewModel() = PurchaseViewModel(
         couponChecker = CouponChecker(repository),

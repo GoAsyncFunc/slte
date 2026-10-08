@@ -42,6 +42,27 @@ SLTE_RELEASE_KEY_PASSWORD=<密码> \
 ./gradlew :app:assembleRelease
 ```
 
+## 本地检查（提交前自跑）
+
+本项目不使用 CI，检查在本机执行，改完代码请自跑对应项：
+
+```bash
+# 代码风格（三个源集：main/test/androidTest）
+./gradlew :app:ktlintCheck
+
+# 截图回归：与 src/test/snapshots/images 基线比对，界面改了就失败
+./gradlew :app:testDebugUnitTest --tests "*SlteComponentScreenshotTest*"
+
+# 视觉确实改了、要比对通过就更新基线（改动会出现在 git diff 里，可评审）
+./gradlew :app:recordRoborazziDebug
+
+# 全部单元测试
+./gradlew :app:testDebugUnitTest
+```
+
+> 截图回归默认走比对（`roborazzi.test.verify`，见 `gradle.properties`）：基线不一致即失败，
+> 不会被静默覆盖；`.editorconfig` 里的规则豁免逐条写明理由，新增豁免同样要写。
+
 ## 配置
 
 通过环境变量注入（默认值为占位符，请替换为自部署地址）：
@@ -54,7 +75,7 @@ SLTE_RELEASE_KEY_PASSWORD=<密码> \
 
 > **安全白名单**：为防配置投毒导致凭据外泄，API 地址与远程配置中的直连域名只允许在域名白名单内切换。白名单 = `SLTE_ALLOWED_DOMAINS` 追加项 + API 地址域名 + 远程配置源域名，构建期自动并入（详见 [CONFIG.md](CONFIG.md)），**无需修改代码**。仓库内置占位符 `example.com`，部署前请通过环境变量或 `app/gradle.properties` 注入你的域名。
 >
-> **内核直连兜底**：内核侧补丁链（`kernel-core/src/main/golang/native/config/process.go`）含独立的直连域名占位（与构建注入互不影响），自持域名需在此同步，并在修改后重新交叉编译 `libclash.so`（`GOOS=linux GOARCH=arm64 go build -tags "android cmfa with_gvisor" ./native/config/`，无需 NDK）。
+> **内核直连兜底**：内核侧补丁链（`kernel-core/src/main/golang/native/config/process.go`）含独立的直连域名占位（与构建注入互不影响），自持域名需在此同步，并在修改后重建 `libclash.so`：交叉编译命令以 `kernel-core/src/main/jniLibs/arm64-v8a/VERSION.md` 为准（需要 NDK 里的 clang 作交叉编译器，`-buildmode=c-shared`），重建后必须把新摘要写回同目录 `SHA256SUMS`，否则构建会被 `:kernel-core:verifyNativeLibraries` 拦下。
 
 ## 相关项目
 

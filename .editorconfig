@@ -13,12 +13,21 @@ indent_size = 4
 ktlint_code_style = android_studio
 ij_kotlin_allow_trailing_comma = true
 ij_kotlin_allow_trailing_comma_on_call_site = true
-ktlint_standard_no_wildcard_imports = disabled
+
+# —— 以下为显式豁免的标准规则，逐条写明理由；新增豁免必须同样给理由 ——
+# 内核模块派生自上游 CMFA，沿用其通配导入写法；逐条展开只会放大与上游的 diff
+ktlint_standard_no-wildcard-imports = disabled
+# 单行表达式优先于折行：android_studio 默认 100 列会命中 400+ 行，折行后反而更难读
 ktlint_standard_max-line-length = disabled
+# 测试方法用反引号中文名（数百处），是项目有意的可读性选择
 ktlint_standard_function-naming = disabled
-ktlint_standard_class-naming = disabled
+# 设计令牌是顶层 snake_case 常量（md_light_primary 等），与设计规格命名一一对应
 ktlint_standard_property-naming = disabled
+# 令牌/图标类文件按"归类"命名并承载多个同类符号（Color.kt / Alpha.kt / Type.kt），无单一主类型
 ktlint_standard_filename = disabled
+# 令牌命名空间是嵌套小写 object，调用点读作路径（Dimens.gap.sm / Dimens.size.button）；
+# 改成 PascalCase（Dimens.Gap.sm）会让每个调用点都变吵，收益不抵成本
+ktlint_standard_class-naming = disabled
 
 [*.{yml,yaml,json,md}]
 indent_size = 2

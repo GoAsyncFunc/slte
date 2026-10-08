@@ -2,7 +2,7 @@
 
 SLTE 的配置分三层，按优先级从高到低：
 
-1. **环境变量**（CI secrets / 发布时 `export`）—— 最高优先级
+1. **环境变量**（发布时 `export`；本项目无 CI，签名与真实域名只留在本机与安全备份里）—— 最高优先级
 2. **`app/gradle.properties`**（本地文件，已被 .gitignore 忽略，不入库）—— 日常开发测试改这里
 3. **远程配置 JSON**（部署在 OSS/Worker 上，运行时下发）—— 运行时可调，无需重新编译
 
@@ -16,7 +16,7 @@ SLTE 的配置分三层，按优先级从高到低：
 
 | 变量 | 默认值 | 作用 |
 |---|---|---|
-| `SLTE_APP_NAME` | `SLTE` | 应用显示名（桌面名称；图标需自行替换 res/mipmap） |
+| `SLTE_APP_NAME` | `SLTE` | 应用显示名（桌面名称；图标母版 `app/icon-source.png`，替换后重新生成 `res/drawable-nodpi/ic_launcher_foreground.png`） |
 | `SLTE_VERSION_CODE` | `1` | 版本号（整数） |
 | `SLTE_VERSION_NAME` | `1.0.0` | 版本号（显示） |
 | `SLTE_API_BASE_URL` | `https://api.example.com` | 后端 API 主地址（https） |
@@ -35,7 +35,7 @@ SLTE 的配置分三层，按优先级从高到低：
 
 > 安全白名单：凭据（JWT / 订阅 token）只发往白名单内域名。
 > 白名单 = `SLTE_ALLOWED_DOMAINS` + API 地址域名 + 远程配置源域名（构建期自动并入），
-> 运行时校验见 `RemoteConfig.ALLOWED_HOST_SUFFIXES`。
+> 运行时校验见 `AllowedHosts.SUFFIXES`（`app/src/main/java/com/slte/app/data/remote/config/AllowedHosts.kt`）。
 
 ---
 
@@ -111,11 +111,3 @@ SLTE 的配置分三层，按优先级从高到低：
   `app/gradle.properties` + 远程配置下发。
 - 远程配置中的 `api_base_url` / `update_apk_url` / `direct_domains` 均经过域名白名单校验，
   非白名单域名会被拒绝。
-
-### 密钥托管
-
-- `release.keystore` 只存本机与 CI Secrets（`SLTE_RELEASE_STORE_B64`），**没有其他备份**。
-- 密钥丢失的后果是单向的：Android 不允许签名不同的 APK 覆盖安装，已发布的
-  应用将永远无法以新密钥升级，只能换包名重新发行。
-- 务必在密码管理器与离线介质各留一份 `release.keystore` 与三个口令
-  （store password / key alias / key password），并定期验证可解密。

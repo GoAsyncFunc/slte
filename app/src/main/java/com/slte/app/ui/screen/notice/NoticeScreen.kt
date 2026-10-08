@@ -23,6 +23,7 @@ import com.slte.app.ui.ContentPhase
 import com.slte.app.ui.component.EmptyState
 import com.slte.app.ui.component.ErrorState
 import com.slte.app.ui.component.LottieLoadingIcon
+import com.slte.app.ui.component.PullRefreshScrollable
 import com.slte.app.ui.component.SltePullRefresh
 import com.slte.app.ui.component.SlteScaffold
 import com.slte.app.ui.component.ToastTip
@@ -106,20 +107,6 @@ private fun NoticeList(
                 notice = notice,
                 onClick = { onClick(notice) },
             )
-        }
-    }
-}
-
-@Composable
-private fun PullRefreshScrollable(content: @Composable () -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
-            Box(
-                modifier = Modifier.fillParentMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                content()
-            }
         }
     }
 }
